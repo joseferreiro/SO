@@ -17,7 +17,7 @@
 #include <grp.h>
 #include <limits.h>
 #include <errno.h>
-#define MAXLEN 50
+#define MAXLEN 100
 
 char *get_permission_string(mode_t mode) {
     static char perms[11];
@@ -65,7 +65,7 @@ void create(char *command, char *name) {
 
 
 void stat_fun(char *command, char *names[]) {
-    int long_format = 0, access_time = 0, symbolic_link = 0, other = 0;
+    int long_format = 0, access_time = 0, symbolic_link = 0;
     char temp[MAXLEN];
     if (command == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
@@ -83,8 +83,16 @@ void stat_fun(char *command, char *names[]) {
     } else if (strcmp(command, "-link") == 0) {
         symbolic_link = 1;
     } else {
-        other = 1;
+        char *aux1 = names[0];
+        char *aux2;
+        names[0] = command;
+        for (int i = 0; names[i] != NULL; i++){
+            aux2 = names[i+1];
+            names[i+1] = aux1;
+            aux1 = aux2;
+        }
     }
+
 
 
     for (int i = 0; names[i] != NULL; i++) {
@@ -114,8 +122,9 @@ void stat_fun(char *command, char *names[]) {
             printf("%s  %s\n", permission_string, names[i]);
         } else if (symbolic_link) {
             printf("%ld  %s\n", file_stat.st_size, names[i]);
-        } else if (other){
-            printf("%ld  %s\n", file_stat.st_size, names[i]); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        }
+        else {
+            printf("%ld  %s\n", file_stat.st_size, names[i]);
         }
     }
 }
