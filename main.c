@@ -17,6 +17,7 @@
 #include <grp.h>
 #include <limits.h>
 #include <errno.h>
+#include <dirent.h>
 #define MAXLEN 100
 
 char *get_permission_string(mode_t mode) {
@@ -35,6 +36,112 @@ char *get_permission_string(mode_t mode) {
     perms[10] = '\0';
 
     return perms;
+}
+
+void list_directory_contents(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat file_stat;
+
+    if ((dir = opendir(directory)) == NULL) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (show_hidden || (entry->d_name[0] != '.')) {
+            char file_path[PATH_MAX];
+            snprintf(file_path, sizeof(file_path), "%s/%s", directory, entry->d_name);
+
+            if (stat(file_path, &file_stat) == -1) {
+                perror("stat");
+                continue;
+            }
+
+            if (long_format) {
+                char permission_string[20];
+                strftime(permission_string, sizeof(permission_string), "%Y/%m/%d-%H:%M", localtime(&file_stat.st_mtime));
+
+                printf("%s %lu (%lu)%s%s %s %ld %s\n",
+                       permission_string,
+                       (unsigned long)file_stat.st_nlink,
+                       file_stat.st_ino,
+                       getpwuid(file_stat.st_uid)->pw_name,
+                       getgrgid(file_stat.st_gid)->gr_name,
+                       get_permission_string(file_stat.st_mode),
+                       file_stat.st_size,
+                       entry->d_name);
+            } else if (access_time) {
+                printf("%s  %s\n", ctime(&file_stat.st_atime), entry->d_name);
+            } else if (link_format) {
+                if (S_ISREG(file_stat.st_mode)) {
+                    printf("%ld  %s\n", file_stat.st_size, entry->d_name);
+                } else {
+                    printf("N/A  %s (not a regular file)\n", entry->d_name);
+                }
+            } else {
+                printf("%s\n", entry->d_name);
+            }
+        }
+    }
+
+    closedir(dir);
+}
+
+void list_recursive_before(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
+    DIR *dir;
+    struct dirent *entry;
+
+    if ((dir = opendir(directory)) == NULL) {
+        perror("opendir");
+        return;
+    }
+
+    printf("****%s****\n", directory); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_DIR) {
+            char file_path[PATH_MAX];
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                continue;
+            }
+            snprintf(file_path, sizeof(file_path), "%s/%s", directory, entry->d_name);
+            list_recursive_before(file_path, show_hidden, long_format, link_format, access_time);
+        }
+    }
+
+    closedir(dir);
+    list_directory_contents(directory, show_hidden, long_format, link_format, access_time);
+}
+
+void list_recursive_after(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
+    printf("****%s****\n", directory);
+
+    list_directory_contents(directory, show_hidden, long_format, link_format, access_time);
+    DIR *dir;
+    struct dirent *entry;
+
+    if ((dir = opendir(directory)) == NULL) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_DIR) {
+            char file_path[PATH_MAX];
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                continue;
+            }
+            snprintf(file_path, sizeof(file_path), "%s/%s", directory, entry->d_name);
+            list_recursive_after(file_path, show_hidden, long_format, link_format, access_time);
+        }
+    }
+
+    closedir(dir);
+}
+
+int is_hidden(const char *name) {
+    return name[0] == '.' && strcmp(name, "..") != 0;
 }
 
 void create(char *command, char *name) {
@@ -93,8 +200,6 @@ void stat_fun(char *command, char *names[]) {
         }
     }
 
-
-
     for (int i = 0; names[i] != NULL; i++) {
         struct stat file_stat;
 
@@ -129,9 +234,64 @@ void stat_fun(char *command, char *names[]) {
     }
 }
 
+void list_fun(char *command, char *names[]) { //varias opciones juntas (necesita modificación
+    int recursive_after = 0;
+    int recursive_before = 0;
+    int show_hidden = 0;
+    int long_format = 0;
+    int link_format = 0;
+    int access_time = 0;
 
-void list (char *command){
+    char temp[MAXLEN];
+    if (command == NULL) {
+        if (getcwd(temp, MAXLEN) != NULL) {
+            printf("Directorio actual: %s\n", temp);
+        } else {
+            perror("stat");
+        }
+        return;
+    }
 
+    if (strcmp(command, "-reca") == 0) {
+        recursive_after = 1;
+    } else if (strcmp(command, "-recb") == 0) {
+        recursive_before = 1;
+    } else if (strcmp(command, "-hid") == 0) {
+        show_hidden = 1;
+    } else if (strcmp(command, "-long") == 0) {
+        long_format = 1;
+    } else if (strcmp(command, "-link") == 0) {
+        link_format = 1;
+    } else if (strcmp(command, "-acc") == 0) {
+        access_time = 1;
+    } else {
+        char *aux1 = names[0];
+        char *aux2;
+        names[0] = command;
+        for (int i = 0; names[i] != NULL; i++){
+            aux2 = names[i+1];
+            names[i+1] = aux1;
+            aux1 = aux2;
+        }
+    }
+
+    for (int i = 0; names[i] != NULL; i++) {
+        char *current_directory = names[i];
+
+        if (recursive_before) {
+            list_recursive_before(current_directory, show_hidden, long_format, link_format, access_time);
+        } else if (recursive_after) {
+            list_recursive_after(current_directory, show_hidden, long_format, link_format, access_time);
+        } else if (show_hidden){
+            list_directory_contents(current_directory, show_hidden, long_format, link_format, access_time);
+        } else if (long_format) {
+            list_directory_contents(current_directory, show_hidden, long_format, link_format, access_time);
+        }
+        else {
+            list_directory_contents(current_directory, show_hidden, long_format, link_format, access_time);
+        }
+
+    }
 }
 
 void delete (){
@@ -498,7 +658,7 @@ void procesarEntrada(char *command, tListCom *listcom, tListFic *listafic, int *
             stat_fun(trozos[1], trozos + 2);
 
         }else  if (!strcmp(trozos[0], "list")){
-            list(trozos[1]);
+            list_fun(trozos[1], trozos + 2);
 
         } else  if (!strcmp(trozos[0], "delete")){
             delete(trozos[1]);
