@@ -13,25 +13,113 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <pwd.h>
+#include <grp.h>
+#include <limits.h>
+#include <errno.h>
 #define MAXLEN 50
 
-void create(char *command, char *name){
+char *get_permission_string(mode_t mode) {
+    static char perms[11];
+
+    perms[0] = (S_ISDIR(mode)) ? 'd' : '-';
+    perms[1] = (mode & S_IRUSR) ? 'r' : '-';
+    perms[2] = (mode & S_IWUSR) ? 'w' : '-';
+    perms[3] = (mode & S_IXUSR) ? 'x' : '-';
+    perms[4] = (mode & S_IRGRP) ? 'r' : '-';
+    perms[5] = (mode & S_IWGRP) ? 'w' : '-';
+    perms[6] = (mode & S_IXGRP) ? 'x' : '-';
+    perms[7] = (mode & S_IROTH) ? 'r' : '-';
+    perms[8] = (mode & S_IWOTH) ? 'w' : '-';
+    perms[9] = (mode & S_IXOTH) ? 'x' : '-';
+    perms[10] = '\0';
+
+    return perms;
+}
+
+void create(char *command, char *name) {
     char temp[MAXLEN];
-    if (command == NULL){
-        getcwd(temp, MAXLEN);
-        printf("%s\n", temp);
-    }
-    else if (name == NULL && command != NULL){ //xxxxxxxxxxxxxxxxxxxxxxxx
-        mkdir(strcat(getcwd(temp, MAXLEN),command), O_EXCL);
-    }else if (!strcmp(command, "-f")){
-            creat(name, O_RDONLY);
+
+    if (command == NULL) {
+        if (getcwd(temp, MAXLEN) != NULL) {
+            printf("Directorio actual: %s\n", temp);
+        } else {
+            perror("create"); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        }
+    } else if (command != NULL && name == NULL) {
+        int result = mkdir(command, 0700);
+        if (result == -1) {
+            perror("create"); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        }
+    } else if (!strcmp(command, "-f") && name != NULL) {
+        int fd = creat(name, 0666);
+        if (fd == -1) {
+            perror("create"); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        } else {
+            close(fd);
+        }
+    } else {
+        printf("Invalid usage of the create command.\n");
     }
 }
 
-void stat_fun (){
 
+void stat_fun(char *command, char *names[]) {
+    int long_format = 0, access_time = 0, symbolic_link = 0, other = 0;
+    char temp[MAXLEN];
+    if (command == NULL) {
+        if (getcwd(temp, MAXLEN) != NULL) {
+            printf("Directorio actual: %s\n", temp);
+        } else {
+            perror("stat");
+        }
+        return;
+    }
+
+    if (strcmp(command, "-long") == 0) {
+        long_format = 1;
+    } else if (strcmp(command, "-acc") == 0) {
+        access_time = 1;
+    } else if (strcmp(command, "-link") == 0) {
+        symbolic_link = 1;
+    } else {
+        other = 1;
+    }
+
+
+    for (int i = 0; names[i] != NULL; i++) {
+        struct stat file_stat;
+
+        if (stat(names[i], &file_stat) == -1) {
+            perror("stat");
+            continue;  // Move to the next file on error
+        }
+
+        char permission_string[20];
+        strftime(permission_string, sizeof(permission_string), "%Y/%m/%d-%H:%M", localtime(&file_stat.st_mtime));
+        if (long_format) {
+            struct passwd *pwd = getpwuid(file_stat.st_uid);
+            struct group *grp = getgrgid(file_stat.st_gid);
+
+            printf("%s %lu (%lu)%s%s %s %ld %s\n",
+                   permission_string,
+                   (unsigned long)file_stat.st_nlink,
+                   file_stat.st_ino,
+                   pwd->pw_name,
+                   grp->gr_name,
+                   get_permission_string(file_stat.st_mode),
+                   file_stat.st_size,
+                   names[i]);
+        } else if (access_time) {
+            printf("%s  %s\n", permission_string, names[i]);
+        } else if (symbolic_link) {
+            printf("%ld  %s\n", file_stat.st_size, names[i]);
+        } else if (other){
+            printf("%ld  %s\n", file_stat.st_size, names[i]); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        }
+    }
 }
+
 
 void list (char *command){
 
@@ -398,7 +486,7 @@ void procesarEntrada(char *command, tListCom *listcom, tListFic *listafic, int *
             create(trozos[1], trozos[2]);
 
         } else  if (!strcmp(trozos[0], "stat")){
-            stat_fun(trozos[1]);
+            stat_fun(trozos[1], trozos + 2);
 
         }else  if (!strcmp(trozos[0], "list")){
             list(trozos[1]);
