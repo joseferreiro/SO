@@ -10,9 +10,7 @@
 #include "lista_comandos.h"
 #include "lista_ficheros.h"
 
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <pwd.h>
 #include <grp.h>
 #include <limits.h>
