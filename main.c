@@ -140,10 +140,6 @@ void list_recursive_after(char *directory, int show_hidden, int long_format, int
     closedir(dir);
 }
 
-int is_hidden(const char *name) {
-    return name[0] == '.' && strcmp(name, "..") != 0;
-}
-
 void create(char *command, char *name) {
     char temp[MAXLEN];
 
@@ -169,7 +165,6 @@ void create(char *command, char *name) {
         printf("Invalid usage of the create command.\n");
     }
 }
-
 
 void stat_fun(char *command, char *names[]) {
     int long_format = 0, access_time = 0, symbolic_link = 0;
@@ -325,10 +320,43 @@ void delete(const char *path) {
     }
 }
 
-void deltree (){
+void deltree(const char *path) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat statbuf;
 
+    if ((dir = opendir(path)) == NULL) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        char full_path[PATH_MAX];
+        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+
+        if (lstat(full_path, &statbuf) == -1) {
+            perror("lstat");
+            continue;
+        }
+
+        if (S_ISDIR(statbuf.st_mode)) {
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                continue;
+            }
+            deltree(full_path);
+        } else {
+            if (unlink(full_path) != 0) {
+                perror("unlink");
+            }
+        }
+    }
+
+    closedir(dir);
+
+    if (rmdir(path) != 0) {
+        perror("rmdir");
+    }
 }
-
 
 char *NombreFicheroDescriptor(tListFic list, int df) {
     tPosFic current = list;
