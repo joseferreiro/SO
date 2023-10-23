@@ -305,8 +305,24 @@ void list_fun(char *command, char *names[]) {
     }
 }
 
-void delete (){
-
+void delete(const char *path) {
+    if (remove(path) == 0) {
+        printf("The file or directory %s has been deleted successfully\n", path);
+    } else {
+        if (errno == EACCES) {
+            perror("ERROR");
+        } else if (errno == ENOENT) {
+            perror("ERROR");
+        } else if (errno == ENOTDIR) {
+            if (rmdir(path) == 0) {
+                printf("The directory %s has been deleted successfully\n", path);
+            } else {
+                perror("ERROR");
+            }
+        } else {
+            printf("Error deleting the file or directory %s\n", path);
+        }
+    }
 }
 
 void deltree (){
