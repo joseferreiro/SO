@@ -12,8 +12,8 @@ void InsertCommand(tListCom *list, char *item[]) {
     }
 
     newNode->command[0] = '\0';
-    int i;
-    for (i = 0; (item[i] != NULL) && (i < MAXLENC); i++) {
+
+    for (int i = 0; (item[i] != NULL) && (i < MAXLENC); i++) {
         strcpy(newNode->command, item[i]);
     }
     newNode->next = NULL;
