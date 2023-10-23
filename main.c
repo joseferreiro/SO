@@ -234,7 +234,9 @@ void stat_fun(char *command, char *names[]) {
     }
 }
 
-void list_fun(char *command, char *names[]) { //varias opciones juntas (necesita modificación
+void list_fun(char *command, char *names[]) { //varias opciones juntas (necesita modificación)
+    int i = 0;
+    char *commands[3];
     int recursive_after = 0;
     int recursive_before = 0;
     int show_hidden = 0;
@@ -252,30 +254,44 @@ void list_fun(char *command, char *names[]) { //varias opciones juntas (necesita
         return;
     }
 
-    if (strcmp(command, "-reca") == 0) {
-        recursive_after = 1;
-    } else if (strcmp(command, "-recb") == 0) {
-        recursive_before = 1;
-    } else if (strcmp(command, "-hid") == 0) {
-        show_hidden = 1;
-    } else if (strcmp(command, "-long") == 0) {
-        long_format = 1;
-    } else if (strcmp(command, "-link") == 0) {
-        link_format = 1;
-    } else if (strcmp(command, "-acc") == 0) {
-        access_time = 1;
-    } else {
-        char *aux1 = names[0];
-        char *aux2;
-        names[0] = command;
-        for (int i = 0; names[i] != NULL; i++){
+    char *aux1 = names[0];
+    char *aux2;
+    commands[0] = command;
+    for (i = 0; names[i] != NULL; i++){
+        if (!strcmp(&names[i][0],"-reca") || !strcmp(&names[i][0],"-recb") || !strcmp(&names[i][0],"-hid") || !strcmp(&names[i][0],"-long") || !strcmp(&names[i][0],"-link") || !strcmp(&names[i][0],"-acc")){
             aux2 = names[i+1];
-            names[i+1] = aux1;
+            commands[i+1] = aux1;
             aux1 = aux2;
         }
     }
 
-    for (int i = 0; names[i] != NULL; i++) {
+    for (int j = 0; commands[j] != NULL; j++) {
+
+        if (strcmp(commands[j], "-reca") == 0) {
+            recursive_after = 1;
+        } else if (strcmp(commands[j], "-recb") == 0) {
+            recursive_before = 1;
+        } else if (strcmp(commands[j], "-hid") == 0) {
+            show_hidden = 1;
+        } else if (strcmp(commands[j], "-long") == 0) {
+            long_format = 1;
+        } else if (strcmp(commands[j], "-link") == 0) {
+            link_format = 1;
+        } else if (strcmp(commands[j], "-acc") == 0) {
+            access_time = 1;
+        } else {
+            char *aux3 = names[0];
+            char *aux4;
+            names[0] = commands[j];
+            for (int i = 0; names[i] != NULL; i++) {
+                aux3 = names[i + 1];
+                names[i + 1] = aux3;
+                aux3 = aux4;
+            }
+        }
+    }
+
+    for (i; names[i] != NULL; i++) {
         char *current_directory = names[i];
 
         if (recursive_before) {
@@ -529,6 +545,11 @@ void help(char *command){
         printf("quit\n");
         printf("exit\n");
         printf("bye\n");
+        printf("create [-f] [name]\n");
+        printf("stat [-long] [-link] [-acc] name1 name2\n");
+        printf("list [-reca] [-recb] [-hid] [-link] [-acc] n1 n2\n");
+        printf("delete [name1 name2 ..]\n");
+        printf("deltree name1 name2 ..]\n");
     }else if (!strcmp(command, "authors")){
         printf("authors [-l|-n]\t Muestra los logins y/o los nombres de los usuarios.\n");
 
@@ -584,11 +605,15 @@ void help(char *command){
         printf("stat [-long] [-link] [-acc] name1 name2 ..          lista ficheros;\n\t -long: listado largo\n\t -acc: acesstime \n\t -link: si es enlace simbolico, el path contenido\n");
 
     }else if (!strcmp(command, "list")){
-        printf("");
+        printf("list [-reca] [-recb] [-hid] [-link] [-acc] n1 n2..           lista contenidos de directorio\n\t -hid: incluye los ficheros ocultos.\n\t -recb: recursivo (antes)\n\t -reca: recursivo (despues)\n\t resto de parametros como stat\n ");
 
-    }
+    }else if (!strcmp(command, "delete")){
+        printf("delete [name1 name2 ..]\t Borra ficheros o directorios vacios\n");
 
-    else{
+    }else if (!strcmp(command, "deltree")){
+        printf("deltree [name1 name2 ..]\t Borra ficheros o diretorios no vacios recursivamente\np ");
+
+    }else{
         printf("comando no reconocido.\n");
 
     }
