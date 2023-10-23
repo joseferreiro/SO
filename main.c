@@ -234,9 +234,9 @@ void stat_fun(char *command, char *names[]) {
     }
 }
 
-void list_fun(char *command, char *names[]) { //varias opciones juntas (necesita modificación)
-    int i = 0;
-    char *commands[3];
+void list_fun(char *command, char *names[]) {
+    char *commands[MAXLEN];
+    char *filtered_names[MAXLEN];
     int recursive_after = 0;
     int recursive_before = 0;
     int show_hidden = 0;
@@ -244,64 +244,64 @@ void list_fun(char *command, char *names[]) { //varias opciones juntas (necesita
     int link_format = 0;
     int access_time = 0;
 
-    char temp[MAXLEN];
-    if (command == NULL) {
-        if (getcwd(temp, MAXLEN) != NULL) {
-            printf("Directorio actual: %s\n", temp);
+    // Initialize arrays
+    for (int i = 0; i < MAXLEN; i++) {
+        commands[i] = NULL;
+        filtered_names[i] = NULL;
+    }
+
+    // Separate commands and names
+    int cmd_index = 0;
+    int names_index = 0;
+
+    // If command is not NULL, add it to the commands array
+    if (command != NULL) {
+        if (names[0] == NULL) {
+            filtered_names[names_index++] = command; // Treat it as a folder name
         } else {
-            perror("stat");
-        }
-        return;
-    }
-    if (names[0] == NULL) {
-        names[0] = command;
-    } else {
-        char *aux1 = names[0];
-        char *aux2;
-        commands[0] = command;
-        for (i = 0; names[i] != NULL; i++) {
-            if (!strcmp(&names[i][0], "-reca") || !strcmp(&names[i][0], "-recb") || !strcmp(&names[i][0], "-hid") ||
-                !strcmp(&names[i][0], "-long") || !strcmp(&names[i][0], "-link") || !strcmp(&names[i][0], "-acc")) {
-                aux2 = names[i + 1];
-                commands[i + 1] = aux1;
-                aux1 = aux2;
-            }
+            commands[cmd_index++] = command;
         }
     }
 
-    for (int j = 0; commands[j] != NULL; j++) {
+    // Filter and separate names
+    for (int i = 0; names[i] != NULL; i++) {
+        if (!strcmp(names[i], "-reca") || !strcmp(names[i], "-recb") || !strcmp(names[i], "-hid") ||
+            !strcmp(names[i], "-long") || !strcmp(names[i], "-link") || !strcmp(names[i], "-acc")) {
+            commands[cmd_index++] = names[i];
+        } else {
+            filtered_names[names_index++] = names[i];
+        }
+    }
 
-        if (strcmp(commands[j], "-reca") == 0) {
+    // Handle commands and filtered names
+    for (int i = 0; commands[i] != NULL; i++) {
+        // Handle commands
+        if (strcmp(commands[i], "-reca") == 0) {
             recursive_after = 1;
-        } else if (strcmp(commands[j], "-recb") == 0) {
+        } else if (strcmp(commands[i], "-recb") == 0) {
             recursive_before = 1;
-        } else if (strcmp(commands[j], "-hid") == 0) {
+        } else if (strcmp(commands[i], "-hid") == 0) {
             show_hidden = 1;
-        } else if (strcmp(commands[j], "-long") == 0) {
+        } else if (strcmp(commands[i], "-long") == 0) {
             long_format = 1;
-        } else if (strcmp(commands[j], "-link") == 0) {
+        } else if (strcmp(commands[i], "-link") == 0) {
             link_format = 1;
-        } else if (strcmp(commands[j], "-acc") == 0) {
+        } else if (strcmp(commands[i], "-acc") == 0) {
             access_time = 1;
         }
     }
 
-    for (i; names[i] != NULL; i++) {
-        char *current_directory = names[i];
+    // Handle filtered names
+    for (int i = 0; filtered_names[i] != NULL; i++) {
+        char *current_directory = filtered_names[i];
 
         if (recursive_before) {
             list_recursive_before(current_directory, show_hidden, long_format, link_format, access_time);
         } else if (recursive_after) {
             list_recursive_after(current_directory, show_hidden, long_format, link_format, access_time);
-        } else if (show_hidden){
-            list_directory_contents(current_directory, show_hidden, long_format, link_format, access_time);
-        } else if (long_format) {
+        } else {
             list_directory_contents(current_directory, show_hidden, long_format, link_format, access_time);
         }
-        else {
-            list_directory_contents(current_directory, show_hidden, long_format, link_format, access_time);
-        }
-
     }
 }
 
