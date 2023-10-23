@@ -588,7 +588,7 @@ void help(char *command){
         printf("stat [-long] [-link] [-acc] name1 name2\n");
         printf("list [-reca] [-recb] [-hid] [-link] [-acc] n1 n2\n");
         printf("delete [name1 name2 ..]\n");
-        printf("deltree name1 name2 ..]\n");
+        printf("deltree [name1 name2 ..]\n");
     }else if (!strcmp(command, "authors")){
         printf("authors [-l|-n]\t Muestra los logins y/o los nombres de los usuarios.\n");
 
@@ -650,7 +650,7 @@ void help(char *command){
         printf("delete [name1 name2 ..]\t Borra ficheros o directorios vacios\n");
 
     }else if (!strcmp(command, "deltree")){
-        printf("deltree [name1 name2 ..]\t Borra ficheros o diretorios no vacios recursivamente\np ");
+        printf("deltree [name1 name2 ..]\t Borra ficheros o diretorios no vacios recursivamente\n");
 
     }else{
         printf("comando no reconocido.\n");
