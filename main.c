@@ -253,15 +253,19 @@ void list_fun(char *command, char *names[]) { //varias opciones juntas (necesita
         }
         return;
     }
-
-    char *aux1 = names[0];
-    char *aux2;
-    commands[0] = command;
-    for (i = 0; names[i] != NULL; i++){
-        if (!strcmp(&names[i][0],"-reca") || !strcmp(&names[i][0],"-recb") || !strcmp(&names[i][0],"-hid") || !strcmp(&names[i][0],"-long") || !strcmp(&names[i][0],"-link") || !strcmp(&names[i][0],"-acc")){
-            aux2 = names[i+1];
-            commands[i+1] = aux1;
-            aux1 = aux2;
+    if (names[0] == NULL) {
+        names[0] = command;
+    } else {
+        char *aux1 = names[0];
+        char *aux2;
+        commands[0] = command;
+        for (i = 0; names[i] != NULL; i++) {
+            if (!strcmp(&names[i][0], "-reca") || !strcmp(&names[i][0], "-recb") || !strcmp(&names[i][0], "-hid") ||
+                !strcmp(&names[i][0], "-long") || !strcmp(&names[i][0], "-link") || !strcmp(&names[i][0], "-acc")) {
+                aux2 = names[i + 1];
+                commands[i + 1] = aux1;
+                aux1 = aux2;
+            }
         }
     }
 
@@ -279,15 +283,6 @@ void list_fun(char *command, char *names[]) { //varias opciones juntas (necesita
             link_format = 1;
         } else if (strcmp(commands[j], "-acc") == 0) {
             access_time = 1;
-        } else {
-            char *aux3 = names[0];
-            char *aux4;
-            names[0] = commands[j];
-            for (int i = 0; names[i] != NULL; i++) {
-                aux3 = names[i + 1];
-                names[i + 1] = aux3;
-                aux3 = aux4;
-            }
         }
     }
 
