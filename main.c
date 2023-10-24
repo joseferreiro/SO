@@ -230,12 +230,22 @@ void stat_fun(char *command, char *names[]) {
 void list_fun(char *command, char *names[]) {
     char *commands[MAXLEN];
     char *filtered_names[MAXLEN];
+    char temp[MAXLEN];
     int recursive_after = 0;
     int recursive_before = 0;
     int show_hidden = 0;
     int long_format = 0;
     int link_format = 0;
     int access_time = 0;
+
+    if (command == NULL) {
+        if (getcwd(temp, MAXLEN) != NULL) {
+            printf("Directorio actual: %s\n", temp);
+        } else {
+            perror("list");
+        }
+        return;
+    }
 
     // Initialize arrays
     for (int i = 0; i < MAXLEN; i++) {
@@ -299,6 +309,15 @@ void list_fun(char *command, char *names[]) {
 }
 
 void delete(const char *path) {
+    char temp[MAXLEN];
+    if (path == NULL) {
+        if (getcwd(temp, MAXLEN) != NULL) {
+            printf("Directorio actual: %s\n", temp);
+        } else {
+            perror("list");
+        }
+        return;
+    }
     if (remove(path) == 0) {
         printf("The file or directory %s has been deleted successfully\n", path);
     } else {
@@ -322,6 +341,15 @@ void deltree(const char *path) {
     DIR *dir;
     struct dirent *entry;
     struct stat statbuf;
+    char temp[MAXLEN];
+    if (path == NULL) {
+        if (getcwd(temp, MAXLEN) != NULL) {
+            printf("Directorio actual: %s\n", temp);
+        } else {
+            perror("list");
+        }
+        return;
+    }
 
     if ((dir = opendir(path)) == NULL) {
         perror("opendir");
