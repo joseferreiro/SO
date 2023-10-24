@@ -78,7 +78,7 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
                     printf("N/A  %s (not a regular file)\n", entry->d_name);
                 }
             } else {
-                printf("%ld %s\n", file_stat.st_size, entry->d_name);
+                printf("%8ld %s\n", file_stat.st_size, entry->d_name);
             }
         }
     }
