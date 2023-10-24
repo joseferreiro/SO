@@ -27,7 +27,6 @@ void InsertCommand(tListCom *list, char *item[]) {
     }
 }
 
-
 void ClearListCom(tListCom *list) {
     if (list == NULL || *list == NULL) {
         return;

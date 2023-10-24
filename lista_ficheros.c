@@ -4,7 +4,7 @@ void CreateListFic(tListFic *list){
     *list = NULL;
 }
 
-void AñadirAFicherosAbiertos(tListFic *list, int descriptor, int mode, char *nombre) {
+void AddFic(tListFic *list, int descriptor, int mode, char *nombre) {
     tNodeFic *newNode = (tNodeFic *)malloc(sizeof(tNodeFic));
     if (newNode == NULL) {
         perror("Error asignando memoria");

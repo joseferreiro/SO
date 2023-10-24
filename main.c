@@ -82,7 +82,6 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
             }
         }
     }
-
     closedir(dir);
 }
 
@@ -159,8 +158,6 @@ void create(char *command, char *name) {
         } else {
             close(fd);
         }
-    } else {
-        printf("Invalid usage of the create command.\n");
     }
 }
 
@@ -384,7 +381,7 @@ void deltree(const char *path) {
     }
 }
 
-char *NombreFicheroDescriptor(tListFic list, int df) {
+char *nombre_fichero_descriptor(tListFic list, int df) {
     tPosFic current = list;
 
     while (current != NULL) {
@@ -398,7 +395,7 @@ char *NombreFicheroDescriptor(tListFic list, int df) {
     return error_message;
 }
 
-void ListarFicherosAbiertos(tListFic *list) {
+void listar_ficheros_abiertos(tListFic *list) {
     tPosFic current = *list;
 
     while (current != NULL) {
@@ -510,7 +507,8 @@ void hist(char *command, tListCom *list){
         }
     }
 }
-void procesarEntrada(char *command, tListCom *listcom, tListFic *listafic, int *exit);
+
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit);
 
 void commandN(char *command, tListCom *list, tListFic *listfic, int *exit){
     int p = 1;
@@ -518,14 +516,14 @@ void commandN(char *command, tListCom *list, tListFic *listfic, int *exit){
     for(i = *list; i->next != NULL && p <= atoi(command); i = i->next){
         p++;
     }
-    procesarEntrada(i->command, list, listfic, exit);
+    procesar_entrada(i->command, list, listfic, exit);
 }
 
 void Cmd_open(char *tr[], tListFic listaficheros) {
     int i, df, mode = 0;
 
     if (tr[1] == NULL) {
-        ListarFicherosAbiertos(&listaficheros);
+        listar_ficheros_abiertos(&listaficheros);
         return;
     }
     for (i = 2; tr[i] != NULL; i++) {
@@ -543,7 +541,7 @@ void Cmd_open(char *tr[], tListFic listaficheros) {
         return;
     }
 
-    AñadirAFicherosAbiertos(&listaficheros, df, mode, tr[1]);
+    AddFic(&listaficheros, df, mode, tr[1]);
     printf("Anadida entrada a la tabla ficheros abiertos\n");
 }
 
@@ -551,7 +549,7 @@ void Cmd_close(char *command, tListFic list) {
     int df;
 
     if (command == NULL || (df = atoi(command)) < 0) {
-        ListarFicherosAbiertos(&list);
+        listar_ficheros_abiertos(&list);
         return;
     }
     if (close(df) == -1) {
@@ -567,23 +565,23 @@ void Cmd_dup(char *command, tListFic list) {
     char aux[MAXLEN], *p;
 
     if (command == NULL || (df = atoi(command)) < 0) {
-        ListarFicherosAbiertos(&list);
+        listar_ficheros_abiertos(&list);
         return;
     }
-    p = NombreFicheroDescriptor(list, df);
+    p = nombre_fichero_descriptor(list, df);
 
     if ((duplicado = dup(df)) == -1) {
         perror("Error duplicando el fichero: \n");
         return;
     }
     snprintf(aux, sizeof(aux), "%s", p);
-    AñadirAFicherosAbiertos(&list, duplicado, fcntl(duplicado, F_GETFL), aux);
+    AddFic(&list, duplicado, fcntl(duplicado, F_GETFL), aux);
     printf("Duplicado fichero %d a %d (%s)\n", df, duplicado, aux);
     free(p);
 }
 
 void listopen(tListFic *list) {
-    ListarFicherosAbiertos(list);
+    listar_ficheros_abiertos(list);
 }
 
 void infosys(){
@@ -692,7 +690,7 @@ void leerEntrada(char *command){
     fgets(command, MAXLEN, stdin);
 }
 
-void procesarEntrada(char *command, tListCom *listcom, tListFic *listafic, int *exit) {
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit) {
     char *trozos[4];
 
     InsertCommand(listcom, &command);
@@ -771,14 +769,14 @@ int main() {
     CreateListCom(&list);
     CreateListFic(&listaficheros);
 
-    AñadirAFicherosAbiertos(&listaficheros, 0, O_RDWR, "entrada estandar");
-    AñadirAFicherosAbiertos(&listaficheros, 1, O_RDWR, "salida estandar");
-    AñadirAFicherosAbiertos(&listaficheros, 2, O_RDWR, "error estandar");
+    AddFic(&listaficheros, 0, O_RDWR, "entrada estandar");
+    AddFic(&listaficheros, 1, O_RDWR, "salida estandar");
+    AddFic(&listaficheros, 2, O_RDWR, "error estandar");
 
     while (exit == 0){
         imprimirPrompt();
         leerEntrada(command);
-        procesarEntrada(command, &list, &listaficheros, &exit);
+        procesar_entrada(command, &list, &listaficheros, &exit);
     }
     ClearListFic(&listaficheros);
     ClearListCom(&list);

@@ -17,7 +17,7 @@ typedef tNodeFic *tPosFic;
 typedef tPosFic tListFic;
 
 void CreateListFic(tListFic *list);
-void AñadirAFicherosAbiertos(tListFic *list, int descriptor, int mode, char *nombre);
+void AddFic(tListFic *list, int descriptor, int mode, char *nombre);
 void RemoveFic(tListFic *list, int df);
 void ClearListFic(tListFic *list);
 
