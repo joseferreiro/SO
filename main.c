@@ -16,7 +16,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <dirent.h>
-#define MAXLEN 100
+#define MAXLEN 200
 
 char *get_permission_string(mode_t mode, const char *path) {
     static char perms[11];
@@ -371,9 +371,9 @@ void list_fun(char *command, char *names[]) {
     }
 }
 
-void delete(const char *path) {
+void delete(const char *paths[]) {
     char temp[MAXLEN];
-    if (path == NULL) {
+    if (paths == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
@@ -381,32 +381,36 @@ void delete(const char *path) {
         }
         return;
     }
-    if (remove(path) == 0) {
-        printf("The file or directory %s has been deleted successfully\n", path);
-    } else {
-        if (errno == EACCES) {
-            perror("ERROR");
-        } else if (errno == ENOENT) {
-            perror("ERROR");
-        } else if (errno == ENOTDIR) {
-            if (rmdir(path) == 0) {
-                printf("The directory %s has been deleted successfully\n", path);
-            } else {
-                perror("ERROR");
-            }
+
+    for (int i = 0; paths[i] != NULL; i++) {
+        if (remove(paths[i]) == 0) {
+            printf("The file or directory %s has been deleted successfully\n", paths[i]);
         } else {
-            printf("Error deleting the file or directory %s\n", path);
+            if (errno == EACCES) {
+                perror("ERROR");
+            } else if (errno == ENOENT) {
+                perror("ERROR");
+            } else if (errno == ENOTDIR) {
+                if (rmdir(paths[i]) == 0) {
+                    printf("The directory %s has been deleted successfully\n", paths[i]);
+                } else {
+                    perror("ERROR");
+                }
+            } else {
+                printf("Error deleting the file or directory %s\n", paths[i]);
+            }
         }
     }
 }
 
-void deltree(const char *path) {
+void deltree(const char *paths[]) {
+    struct stat statbuf;
     DIR *dir;
     struct dirent *entry;
-    struct stat statbuf;
-    char temp[MAXLEN];
-    if (path == NULL) {
-        if (getcwd(temp, MAXLEN) != NULL) {
+    char temp[PATH_MAX];
+
+    if (paths[0] == NULL) {
+        if (getcwd(temp, PATH_MAX) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
             perror("list");
@@ -414,36 +418,46 @@ void deltree(const char *path) {
         return;
     }
 
-    if ((dir = opendir(path)) == NULL) {
-        perror("opendir");
-        return;
-    }
+    // Process each path in the array
+    for (int i = 0; paths[i] != NULL; i++) {
 
-    while ((entry = readdir(dir)) != NULL) {
-        char full_path[PATH_MAX];
-        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
-
-        if (lstat(full_path, &statbuf) == -1) {
+        if (lstat(paths[i], &statbuf) == -1) {
+            // Handle the "No such file or directory" error
             perror("lstat");
             continue;
         }
 
-        if (S_ISDIR(statbuf.st_mode)) {
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+        if ((dir = opendir(paths[i])) == NULL) {
+            perror("opendir");
+            return;
+        }
+
+        while ((entry = readdir(dir)) != NULL) {
+            char full_path[PATH_MAX];
+            snprintf(full_path, sizeof(full_path), "%s/%s", paths[i], entry->d_name);
+
+            if (lstat(full_path, &statbuf) == -1) {
+                perror("lstat");
                 continue;
             }
-            deltree(full_path);
-        } else {
-            if (unlink(full_path) != 0) {
-                perror("unlink");
+
+            if (S_ISDIR(statbuf.st_mode)) {
+                if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                    continue;
+                }
+                deltree((const char *[]) { full_path, NULL }); // Recursively delete the contents
+            } else {
+                if (unlink(full_path) != 0) {
+                    perror("unlink");
+                }
             }
         }
-    }
 
-    closedir(dir);
+        closedir(dir);
 
-    if (rmdir(path) != 0) {
-        perror("rmdir");
+        if (rmdir(paths[i]) != 0) {
+            perror("rmdir");
+        }
     }
 }
 
@@ -815,10 +829,10 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int 
             list_fun(trozos[1], trozos + 2);
 
         } else  if (!strcmp(trozos[0], "delete")){
-            delete(trozos[1]);
+            delete((const char **) (trozos + 1));
 
         } else  if (!strcmp(trozos[0], "deltree")){
-            deltree(trozos[1]);
+            deltree((const char **) (trozos + 1));
 
         } else {
             printf("comando no reconocido\n");
