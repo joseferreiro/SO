@@ -18,19 +18,43 @@
 #include <dirent.h>
 #define MAXLEN 100
 
-char *get_permission_string(mode_t mode) {
+char *get_permission_string(mode_t mode, const char *path) {
     static char perms[11];
 
-    perms[0] = (S_ISDIR(mode)) ? 'd' : '-';
-    perms[1] = (mode & S_IRUSR) ? 'r' : '-';
-    perms[2] = (mode & S_IWUSR) ? 'w' : '-';
-    perms[3] = (mode & S_IXUSR) ? 'x' : '-';
-    perms[4] = (mode & S_IRGRP) ? 'r' : '-';
-    perms[5] = (mode & S_IWGRP) ? 'w' : '-';
-    perms[6] = (mode & S_IXGRP) ? 'x' : '-';
-    perms[7] = (mode & S_IROTH) ? 'r' : '-';
-    perms[8] = (mode & S_IWOTH) ? 'w' : '-';
-    perms[9] = (mode & S_IXOTH) ? 'x' : '-';
+    struct stat file_stat;
+
+    if (lstat(path, &file_stat) == -1) {
+        // Handle the error
+        perror("lstat");
+        return "??????????";
+    }
+
+    if (S_ISLNK(file_stat.st_mode))
+        perms[0] = 'l';
+    else if (S_ISREG(file_stat.st_mode))
+        perms[0] = '-';
+    else if (S_ISDIR(file_stat.st_mode))
+        perms[0] = 'd';
+    else if (S_ISCHR(file_stat.st_mode))
+        perms[0] = 'c';
+    else if (S_ISBLK(file_stat.st_mode))
+        perms[0] = 'b';
+    else if (S_ISFIFO(file_stat.st_mode))
+        perms[0] = 'p';
+    else if (S_ISSOCK(file_stat.st_mode))
+        perms[0] = 's';
+    else
+        perms[0] = '?';
+
+    perms[1] = (file_stat.st_mode & S_IRUSR) ? 'r' : '-';
+    perms[2] = (file_stat.st_mode & S_IWUSR) ? 'w' : '-';
+    perms[3] = (file_stat.st_mode & S_IXUSR) ? 'x' : '-';
+    perms[4] = (file_stat.st_mode & S_IRGRP) ? 'r' : '-';
+    perms[5] = (file_stat.st_mode & S_IWGRP) ? 'w' : '-';
+    perms[6] = (file_stat.st_mode & S_IXGRP) ? 'x' : '-';
+    perms[7] = (file_stat.st_mode & S_IROTH) ? 'r' : '-';
+    perms[8] = (file_stat.st_mode & S_IWOTH) ? 'w' : '-';
+    perms[9] = (file_stat.st_mode & S_IXOTH) ? 'x' : '-';
     perms[10] = '\0';
 
     return perms;
@@ -66,7 +90,7 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
                        file_stat.st_ino,
                        getpwuid(file_stat.st_uid)->pw_name,
                        getgrgid(file_stat.st_gid)->gr_name,
-                       get_permission_string(file_stat.st_mode),
+                       get_permission_string(file_stat.st_mode, directory),
                        file_stat.st_size,
                        entry->d_name);
             } else if (access_time) {
@@ -161,9 +185,13 @@ void create(char *command, char *name) {
     }
 }
 
-void stat_fun(char *command, char *names[]) {
-    int long_format = 0, access_time = 0, symbolic_link = 0;
+void stat_fun(char *command, char *names[]) { //tiempo
+    char *commands[MAXLEN];
+    char *filtered_names[MAXLEN];
     char temp[MAXLEN];
+    int long_format = 0;
+    int link_format = 0;
+    int access_time = 0;
     if (command == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
@@ -173,53 +201,91 @@ void stat_fun(char *command, char *names[]) {
         return;
     }
 
-    if (strcmp(command, "-long") == 0) {
-        long_format = 1;
-    } else if (strcmp(command, "-acc") == 0) {
-        access_time = 1;
-    } else if (strcmp(command, "-link") == 0) {
-        symbolic_link = 1;
-    } else {
-        char *aux1 = names[0];
-        char *aux2;
-        names[0] = command;
-        for (int i = 0; names[i] != NULL; i++){
-            aux2 = names[i+1];
-            names[i+1] = aux1;
-            aux1 = aux2;
+    for (int i = 0; i < MAXLEN; i++) {
+        commands[i] = NULL;
+        filtered_names[i] = NULL;
+    }
+
+    int cmd_index = 0;
+    int names_index = 0;
+
+    // If command is not NULL, add it to the commands array
+    if (command != NULL) {
+        if (names[0] == NULL) {
+            filtered_names[names_index++] = command; // Treat it as a folder name
+        } else {
+            commands[cmd_index++] = command;
         }
     }
 
+    // Filter and separate names
     for (int i = 0; names[i] != NULL; i++) {
+        if (!strcmp(names[i], "-long") || !strcmp(names[i], "-link") || !strcmp(names[i], "-acc")) {
+            commands[cmd_index++] = names[i];
+        } else {
+            filtered_names[names_index++] = names[i];
+        }
+    }
+
+
+    for (int i = 0; commands[i] != NULL; i++) {
+        // Handle commands
+        if (strcmp(commands[i], "-long") == 0) {
+            long_format = 1;
+        } else if (strcmp(commands[i], "-link") == 0) {
+            link_format = 1;
+        } else if (strcmp(commands[i], "-acc") == 0) {
+            access_time = 1;
+        } else {
+            break;
+        }
+    }
+
+    for (int i = 0; filtered_names[i] != NULL; i++) {
         struct stat file_stat;
 
-        if (stat(names[i], &file_stat) == -1) {
+        if (stat(filtered_names[i], &file_stat) == -1) {
             perror("stat");
             continue;  // Move to the next file on error
         }
 
-        char permission_string[20];
-        strftime(permission_string, sizeof(permission_string), "%Y/%m/%d-%H:%M", localtime(&file_stat.st_mtime));
+        char time_string[20];
+        strftime(time_string, sizeof(time_string), "%Y/%m/%d-%H:%M",
+                 access_time ? localtime(&file_stat.st_atime) : localtime(&file_stat.st_mtime));
+
         if (long_format) {
             struct passwd *pwd = getpwuid(file_stat.st_uid);
             struct group *grp = getgrgid(file_stat.st_gid);
+            char target_path[MAXLEN];
 
-            printf("%s %lu (%lu)%s%s %s %ld %s\n",
-                   permission_string,
+            ssize_t bytesRead = readlink(filtered_names[i], target_path, sizeof(target_path) - 1);
+            if (link_format) {
+                if (bytesRead != -1) {
+                    target_path[bytesRead] = '\0';
+                } else {
+                    link_format = 0;
+                }
+            }
+
+            struct stat link_stat;
+            if (lstat(filtered_names[i], &link_stat) == -1) {
+                perror("lstat");
+            }
+
+            ino_t inode = link_stat.st_ino;
+
+            printf("%s %lu (%lu) %s%s %s %ld %s %s\n",
+                   time_string,
                    (unsigned long)file_stat.st_nlink,
-                   file_stat.st_ino,
+                   (unsigned long) inode,
                    pwd->pw_name,
                    grp->gr_name,
-                   get_permission_string(file_stat.st_mode),
-                   file_stat.st_size,
-                   names[i]);
-        } else if (access_time) {
-            printf("%s  %s\n", permission_string, names[i]);
-        } else if (symbolic_link) {
-            printf("%ld  %s\n", file_stat.st_size, names[i]);
-        }
-        else {
-            printf("%ld  %s\n", file_stat.st_size, names[i]);
+                   get_permission_string(file_stat.st_mode, filtered_names[i]),
+                   link_format ? (long) bytesRead : file_stat.st_size,
+                   filtered_names[i],
+                   link_format ? target_path : "");
+        } else {
+            printf("%ld  %s\n", file_stat.st_size, filtered_names[i]);
         }
     }
 }
