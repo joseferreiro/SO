@@ -81,18 +81,37 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
             }
 
             if (long_format) {
-                char permission_string[20];
-                strftime(permission_string, sizeof(permission_string), "%Y/%m/%d-%H:%M", localtime(&file_stat.st_mtime));
+                char time_string[20];
+                strftime(time_string, sizeof(time_string), "%Y/%m/%d-%H:%M", localtime(&file_stat.st_mtime));
 
-                printf("%s %lu (%lu)%s%s %s %ld %s\n",
-                       permission_string,
+                char target_path[MAXLEN];
+
+                ssize_t bytesRead = readlink(directory, target_path, sizeof(target_path) - 1);
+                if (link_format) {
+                    if (bytesRead != -1) {
+                        target_path[bytesRead] = '\0';
+                    } else {
+                        link_format = 0;
+                    }
+                }
+
+                struct stat link_stat;
+                if (lstat(directory, &link_stat) == -1) {
+                    perror("lstat");
+                }
+
+                ino_t inode = link_stat.st_ino;
+
+                printf("%s %lu (%lu) %s%s %s %ld %s%s%s\n",
+                       time_string,
                        (unsigned long)file_stat.st_nlink,
-                       file_stat.st_ino,
+                       (unsigned long) inode,
                        getpwuid(file_stat.st_uid)->pw_name,
                        getgrgid(file_stat.st_gid)->gr_name,
                        get_permission_string(file_stat.st_mode, directory),
                        file_stat.st_size,
-                       entry->d_name);
+                       entry->d_name,
+                       link_format ? "->",target_path : "","");
             } else if (access_time) {
                 printf("%s  %s\n", ctime(&file_stat.st_atime), entry->d_name);
             } else if (link_format) {
@@ -274,7 +293,7 @@ void stat_fun(char *command, char *names[]) { //tiempo
 
             ino_t inode = link_stat.st_ino;
 
-            printf("%s %lu (%lu) %s%s %s %ld %s %s\n",
+            printf("%s %lu (%lu) %s%s %s %ld %s%s%s\n",
                    time_string,
                    (unsigned long)file_stat.st_nlink,
                    (unsigned long) inode,
@@ -283,7 +302,7 @@ void stat_fun(char *command, char *names[]) { //tiempo
                    get_permission_string(file_stat.st_mode, filtered_names[i]),
                    link_format ? (long) bytesRead : file_stat.st_size,
                    filtered_names[i],
-                   link_format ? target_path : "");
+                   link_format ? "->",target_path : "","");
         } else {
             printf("%ld  %s\n", file_stat.st_size, filtered_names[i]);
         }
