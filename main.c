@@ -392,11 +392,11 @@ void list_fun(char *command, char *names[]) {
 
 void delete(const char *paths[]) {
     char temp[MAXLEN];
-    if (paths == NULL) {
+    if (paths[0] == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
-            perror("list");
+            perror("delete");
         }
         return;
     }
