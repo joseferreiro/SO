@@ -15,7 +15,7 @@ typedef tNodeCom *tPosCom;
 typedef tPosCom tListCom;
 
 void CreateListCom(tListCom *list);
-void InsertCommand(tListCom *list, char *command[]);
+void InsertCommand(tListCom *list, char *command);
 void ClearListCom(tListCom *list);
 
 #endif

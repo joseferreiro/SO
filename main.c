@@ -792,7 +792,7 @@ void leerEntrada(char *command){
 void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit) {
     char *trozos[4];
 
-    InsertCommand(listcom, &command);
+    InsertCommand(listcom, command);
     int numt = TrocearCadena(command, trozos);
 
     if (numt > 0) {

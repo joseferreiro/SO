@@ -4,7 +4,7 @@ void CreateListCom(tListCom *list){
     *list = NULL;
 }
 
-void InsertCommand(tListCom *list, char *item[]) {
+void InsertCommand(tListCom *list, char *item) {
     tPosCom newNode = malloc(sizeof(tNodeCom));
     if (newNode == NULL) {
         perror("Error asignando memoria");
@@ -13,8 +13,8 @@ void InsertCommand(tListCom *list, char *item[]) {
 
     newNode->command[0] = '\0';
 
-    for (int i = 0; (item[i] != NULL) && (i < MAXLENC); i++) {
-        strcpy(newNode->command, item[i]);
+    for (int i = 0; (item != NULL) && (i < MAXLENC); i++) {
+        strcpy(newNode->command, item);
     }
     newNode->next = NULL;
 
