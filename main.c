@@ -311,6 +311,7 @@ void stat_fun(char *command, char *names[]) { //tiempo
             printf("%ld  %s\n", file_stat.st_size, filtered_names[i]);
         }
     }
+    return;
 }
 
 void list_fun(char *command, char *names[]) {
@@ -794,7 +795,7 @@ void leerEntrada(char *command){
 }
 
 void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit) {
-    char *trozos[4];
+    char *trozos[10];
 
     InsertCommand(listcom, command);
     int numt = TrocearCadena(command, trozos);
