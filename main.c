@@ -218,14 +218,14 @@ void create(char *command, char *name) {
     }
 }
 
-void stat_fun(char *command, char *names[]) { //tiempo
-    char *commands[MAXLEN];
-    char *filtered_names[MAXLEN];
+void stat_fun(char *tr[]) { //tiempo
+    char *commands[3] ={NULL, NULL, NULL};
+    char *filtered_names[20];
     char temp[MAXLEN];
     int long_format = 0;
     int link_format = 0;
     int access_time = 0;
-    if (command == NULL) {
+    if (tr == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
@@ -234,35 +234,23 @@ void stat_fun(char *command, char *names[]) { //tiempo
         return;
     }
 
-    for (int i = 0; i < MAXLEN; i++) {
-        commands[i] = NULL;
+    for (int i = 0; i < 20; i++) {
         filtered_names[i] = NULL;
     }
 
     int cmd_index = 0;
     int names_index = 0;
 
-    // If command is not NULL, add it to the commands array
-    if (command != NULL) {
-        if (names[0] == NULL) {
-            filtered_names[names_index++] = command; // Treat it as a folder name
+    // Filtramos entre las opciones del comando y los nombres de ficheros y/o directorios
+    for (int i = 0; tr[i] != NULL; i++) {
+        if (!strcmp(tr[i], "-long") || !strcmp(tr[i], "-link") || !strcmp(tr[i], "-acc")) {
+            commands[cmd_index++] = tr[i];
         } else {
-            commands[cmd_index++] = command;
+            filtered_names[names_index++] = tr[i];
         }
     }
-
-    // Filter and separate names
-    for (int i = 0; names[i] != NULL; i++) {
-        if (!strcmp(names[i], "-long") || !strcmp(names[i], "-link") || !strcmp(names[i], "-acc")) {
-            commands[cmd_index++] = names[i];
-        } else {
-            filtered_names[names_index++] = names[i];
-        }
-    }
-
 
     for (int i = 0; commands[i] != NULL; i++) {
-        // Handle commands
         if (strcmp(commands[i], "-long") == 0) {
             long_format = 1;
         } else if (strcmp(commands[i], "-link") == 0) {
@@ -279,7 +267,7 @@ void stat_fun(char *command, char *names[]) { //tiempo
 
         if (stat(filtered_names[i], &file_stat) == -1) {
             perror("stat");
-            continue;  // Move to the next file on error
+            continue;
         }
 
         char time_string[20];
@@ -322,9 +310,9 @@ void stat_fun(char *command, char *names[]) { //tiempo
     }
 }
 
-void list_fun(char *command, char *names[]) {
-    char *commands[MAXLEN];
-    char *filtered_names[MAXLEN];
+void list_fun(char *tr[]) {
+    char *commands[6] ={NULL, NULL, NULL, NULL, NULL, NULL};
+    char *filtered_names[20];
     char temp[MAXLEN];
     int recursive_after = 0;
     int recursive_before = 0;
@@ -333,7 +321,7 @@ void list_fun(char *command, char *names[]) {
     int link_format = 0;
     int access_time = 0;
 
-    if (command == NULL) {
+    if (tr == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
@@ -343,8 +331,7 @@ void list_fun(char *command, char *names[]) {
     }
 
     // Initialize arrays
-    for (int i = 0; i < MAXLEN; i++) {
-        commands[i] = NULL;
+    for (int i = 0; i < 20; i++) {
         filtered_names[i] = NULL;
     }
 
@@ -352,22 +339,13 @@ void list_fun(char *command, char *names[]) {
     int cmd_index = 0;
     int names_index = 0;
 
-    // If command is not NULL, add it to the commands array
-    if (command != NULL) {
-        if (names[0] == NULL) {
-            filtered_names[names_index++] = command; // Treat it as a folder name
-        } else {
-            commands[cmd_index++] = command;
-        }
-    }
-
     // Filter and separate names
-    for (int i = 0; names[i] != NULL; i++) {
-        if (!strcmp(names[i], "-reca") || !strcmp(names[i], "-recb") || !strcmp(names[i], "-hid") ||
-            !strcmp(names[i], "-long") || !strcmp(names[i], "-link") || !strcmp(names[i], "-acc")) {
-            commands[cmd_index++] = names[i];
+    for (int i = 0; tr[i] != NULL; i++) {
+        if (!strcmp(tr[i], "-reca") || !strcmp(tr[i], "-recb") || !strcmp(tr[i], "-hid") ||
+            !strcmp(tr[i], "-long") || !strcmp(tr[i], "-link") || !strcmp(tr[i], "-acc")) {
+            commands[cmd_index++] = tr[i];
         } else {
-            filtered_names[names_index++] = names[i];
+            filtered_names[names_index++] = tr[i];
         }
     }
 
@@ -403,7 +381,7 @@ void list_fun(char *command, char *names[]) {
     }
 }
 
-void delete(const char *paths[]) {
+void delete(char *paths[]) {
     char temp[MAXLEN];
     if (paths[0] == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
@@ -435,7 +413,7 @@ void delete(const char *paths[]) {
     }
 }
 
-void deltree(const char *paths[]) {
+void deltree(char *paths[]) {
     struct stat statbuf;
     DIR *dir;
     struct dirent *entry;
@@ -477,7 +455,7 @@ void deltree(const char *paths[]) {
                 if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
                     continue;
                 }
-                deltree((const char *[]) { full_path, NULL }); // Recursively delete the contents
+                deltree((char *[]) {full_path, NULL }); // Recursively delete the contents
             } else {
                 if (unlink(full_path) != 0) {
                     perror("unlink");
@@ -879,16 +857,16 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int 
             create(trozos[1], trozos[2]);
 
         } else  if (!strcmp(trozos[0], "stat")){
-            stat_fun(trozos[1], trozos + 2);
+            stat_fun(trozos + 1);
 
         }else  if (!strcmp(trozos[0], "list")){
-            list_fun(trozos[1], trozos + 2);
+            list_fun(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "delete")){
-            delete((const char **) (trozos + 1));
+            delete(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "deltree")){
-            deltree((const char **) (trozos + 1));
+            deltree(trozos + 1);
 
         } else {
             printf("comando no reconocido\n");
