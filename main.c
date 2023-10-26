@@ -2,6 +2,7 @@
 //Autor 2: Alvaro Mendez Linares    login: alvaro.mendez.linares@udc.es
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
@@ -11,12 +12,16 @@
 #include "lista_ficheros.h"
 
 #include <sys/stat.h>
+#include <linux/stat.h>
 #include <pwd.h>
 #include <grp.h>
 #include <limits.h>
 #include <errno.h>
 #include <dirent.h>
+
 #define MAXLEN 200
+
+
 
 char *get_permission_string(mode_t mode, const char *path) {
     static char perms[11];
@@ -271,7 +276,7 @@ void stat_fun(char *command, char *names[]) { //tiempo
 
         char time_string[20];
         strftime(time_string, sizeof(time_string), "%Y/%m/%d-%H:%M",
-                 access_time ? localtime(&file_stat.st_atime) : localtime(&file_stat.st_mtime));
+                 access_time ? localtime(&file_stat.st_atime) : localtime(&file_stat.st_ctime));
 
         if (long_format) {
             char target_path[MAXLEN];
