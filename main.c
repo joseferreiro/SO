@@ -273,8 +273,6 @@ void stat_fun(char *command, char *names[]) { //tiempo
                  access_time ? localtime(&file_stat.st_atime) : localtime(&file_stat.st_mtime));
 
         if (long_format) {
-            struct passwd *pwd = getpwuid(file_stat.st_uid);
-            struct group *grp = getgrgid(file_stat.st_gid);
             char target_path[MAXLEN];
 
             ssize_t bytesRead = readlink(filtered_names[i], target_path, sizeof(target_path) - 1);
@@ -295,10 +293,10 @@ void stat_fun(char *command, char *names[]) { //tiempo
 
             printf("%s %lu (%lu) %s%s %s %ld %s%s%s\n",
                    time_string,
-                   (unsigned long)file_stat.st_nlink,
+                   (unsigned long) file_stat.st_nlink,
                    (unsigned long) inode,
-                   pwd->pw_name,
-                   grp->gr_name,
+                   getpwuid(file_stat.st_uid)->pw_name,
+                   getgrgid(file_stat.st_gid)->gr_name,
                    get_permission_string(file_stat.st_mode, filtered_names[i]),
                    link_format ? (long) bytesRead : file_stat.st_size,
                    filtered_names[i],
