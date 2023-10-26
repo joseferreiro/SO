@@ -17,8 +17,28 @@
 #include <limits.h>
 #include <errno.h>
 #include <dirent.h>
+#include <ctype.h>
 
 #define MAXLEN 200
+
+int is_numeric(const char *str) { //Comprueba si un string es un número
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (!isdigit(str[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int get_total_commands(tListCom list) { //Devuelve el total de comandos de la lista de comandos
+    int total = 0;
+    tPosCom current = list;
+    while (current != NULL) {
+        total++;
+        current = current->next;
+    }
+    return total;
+}
 
 char LetraTF (mode_t m)
 {
@@ -605,19 +625,32 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int 
 void commandN(char *command, tListCom *list, tListFic *listfic, int *exit) {
     int p = 1;
     tPosCom i;
-    for (i = *list; i->next != NULL && p <= atoi(command); i = i->next) {
+
+    // Comprobamos que el numero de comando introducido es válido
+    if (!is_numeric(command)) {
+        printf("El numero de comando introducido no es válido: %s\n", command);
+        return;
+    }
+
+    int commandNumber = atoi(command);
+
+    // Comprobamos que el número de comando introducido esta en la lista de commandos
+    if (commandNumber < 1 || commandNumber > get_total_commands(*list)) {
+        printf("El número de comando introducido no existe: %d\n", commandNumber);
+        return;
+    }
+    //Se recorre la lista en busca del comando indicado
+    for (i = *list; i->next != NULL && p <= commandNumber; i = i->next) {
         p++;
     }
 
-    // Create a copy of i->command
     char *commandCopy = strdup(i->command);
-    int storeCommand = 0;
     if (commandCopy != NULL) {
+        int storeCommand = 0;
         procesar_entrada(commandCopy, list, listfic, exit, storeCommand);
-        free(commandCopy); // Remember to free the copy when done with it
+        free(commandCopy);
     } else {
-        // Handle the case where strdup failed to allocate memory
-        // You may want to add error handling here
+        perror("No se pudo ejecutar el comando solicitado: ");
     }
 }
 
@@ -655,7 +688,7 @@ void Cmd_close(char *command, tListFic list) {
         return;
     }
     if (close(df) == -1) {
-        perror("Imposible cerrar descriptor\n");
+        perror("Imposible cerrar descriptor.\n");
     } else {
         RemoveFic(&list, df);
         printf("Descriptor %d cerrado y eliminado de la lista de ficheros abiertos.\n", df);
