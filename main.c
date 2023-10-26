@@ -12,7 +12,6 @@
 #include "lista_ficheros.h"
 
 #include <sys/stat.h>
-#include <linux/stat.h>
 #include <pwd.h>
 #include <grp.h>
 #include <limits.h>
