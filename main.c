@@ -20,8 +20,6 @@
 
 #define MAXLEN 200
 
-
-
 char *get_permission_string(mode_t mode, const char *path) {
     static char perms[11];
 
