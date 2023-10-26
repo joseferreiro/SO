@@ -1,0 +1,25 @@
+CC=gcc
+CFLAGS=-Wall
+
+all: shell
+
+shell: p0.c lista_comandos.o lista_ficheros.o
+	$(CC) -o p0 p0.c lista_comandos.o lista_ficheros.o $(CFLAGS)
+
+lista_comandos.o: lista_comandos.c lista_comandos.h
+	$(CC) -c lista_comandos.c $(CFLAGS)
+
+lista_ficheros.o: lista_ficheros.c lista_ficheros.h
+	$(CC) -c lista_ficheros.c $(CFLAGS)
+
+clean:
+	rm *.h.gch
+
+clean_obj:
+	rm *.o
+	rm *.h.gch
+
+clean_all:
+	rm shell
+	rm *.o
+	rm *.h.gch
