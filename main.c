@@ -309,7 +309,6 @@ void stat_fun(char *command, char *names[]) { //tiempo
             printf("%ld  %s\n", file_stat.st_size, filtered_names[i]);
         }
     }
-    return;
 }
 
 void list_fun(char *command, char *names[]) {
@@ -594,7 +593,7 @@ void hist(char *command, tListCom *list){
     if (command == NULL){
         int p = 0;
         for(tPosCom i = *list; i != NULL; i = i->next){
-            printf("%d  %s\n", p, i->command);
+            printf("%d  %s", p, i->command);
             p++;
         }
     }
@@ -610,15 +609,25 @@ void hist(char *command, tListCom *list){
     }
 }
 
-void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit);
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit, int storeCommand);
 
-void commandN(char *command, tListCom *list, tListFic *listfic, int *exit){
+void commandN(char *command, tListCom *list, tListFic *listfic, int *exit) {
     int p = 1;
     tPosCom i;
-    for(i = *list; i->next != NULL && p <= atoi(command); i = i->next){
+    for (i = *list; i->next != NULL && p <= atoi(command); i = i->next) {
         p++;
     }
-    procesar_entrada(i->command, list, listfic, exit);
+
+    // Create a copy of i->command
+    char *commandCopy = strdup(i->command);
+    int storeCommand = 0;
+    if (commandCopy != NULL) {
+        procesar_entrada(commandCopy, list, listfic, exit, storeCommand);
+        free(commandCopy); // Remember to free the copy when done with it
+    } else {
+        // Handle the case where strdup failed to allocate memory
+        // You may want to add error handling here
+    }
 }
 
 void Cmd_open(char *tr[], tListFic listaficheros) {
@@ -792,10 +801,11 @@ void leerEntrada(char *command){
     fgets(command, MAXLEN, stdin);
 }
 
-void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit) {
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit, int storeCommand) {
     char *trozos[10];
 
-    InsertCommand(listcom, command);
+    if(storeCommand)
+        InsertCommand(listcom, command);
     int numt = TrocearCadena(command, trozos);
 
     if (numt > 0) {
@@ -865,6 +875,7 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int 
 int main() {
     char command[MAXLEN];
     int exit = 0;
+    int storeCommand = 1;
 
     tListCom list;
     tListFic listaficheros;
@@ -878,7 +889,7 @@ int main() {
     while (exit == 0){
         imprimirPrompt();
         leerEntrada(command);
-        procesar_entrada(command, &list, &listaficheros, &exit);
+        procesar_entrada(command, &list, &listaficheros, &exit, storeCommand);
     }
     ClearListFic(&listaficheros);
     ClearListCom(&list);
