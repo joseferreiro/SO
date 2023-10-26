@@ -20,46 +20,40 @@
 
 #define MAXLEN 200
 
-char *get_permission_string(mode_t mode, const char *path) {
-    static char perms[11];
-
-    struct stat file_stat;
-
-    if (lstat(path, &file_stat) == -1) {
-        // Handle the error
-        perror("lstat");
-        return "??????????";
+char LetraTF (mode_t m)
+{
+    switch (m&S_IFMT) { /*and bit a bit con los bits de formato,0170000 */
+        case S_IFSOCK: return 's'; /*socket */
+        case S_IFLNK: return 'l'; /*symbolic link*/
+        case S_IFREG: return '-'; /* fichero normal*/
+        case S_IFBLK: return 'b'; /*block device*/
+        case S_IFDIR: return 'd'; /*directorio */
+        case S_IFCHR: return 'c'; /*char device*/
+        case S_IFIFO: return 'p'; /*pipe*/
+        default: return '?'; /*desconocido, no deberia aparecer*/
     }
+}
 
-    if (S_ISLNK(file_stat.st_mode))
-        perms[0] = 'l';
-    else if (S_ISREG(file_stat.st_mode))
-        perms[0] = '-';
-    else if (S_ISDIR(file_stat.st_mode))
-        perms[0] = 'd';
-    else if (S_ISCHR(file_stat.st_mode))
-        perms[0] = 'c';
-    else if (S_ISBLK(file_stat.st_mode))
-        perms[0] = 'b';
-    else if (S_ISFIFO(file_stat.st_mode))
-        perms[0] = 'p';
-    else if (S_ISSOCK(file_stat.st_mode))
-        perms[0] = 's';
-    else
-        perms[0] = '?';
+char *ConvierteModo2 (mode_t m)
+{
+    static char permisos[12];
+    strcpy (permisos,"---------- ");
 
-    perms[1] = (file_stat.st_mode & S_IRUSR) ? 'r' : '-';
-    perms[2] = (file_stat.st_mode & S_IWUSR) ? 'w' : '-';
-    perms[3] = (file_stat.st_mode & S_IXUSR) ? 'x' : '-';
-    perms[4] = (file_stat.st_mode & S_IRGRP) ? 'r' : '-';
-    perms[5] = (file_stat.st_mode & S_IWGRP) ? 'w' : '-';
-    perms[6] = (file_stat.st_mode & S_IXGRP) ? 'x' : '-';
-    perms[7] = (file_stat.st_mode & S_IROTH) ? 'r' : '-';
-    perms[8] = (file_stat.st_mode & S_IWOTH) ? 'w' : '-';
-    perms[9] = (file_stat.st_mode & S_IXOTH) ? 'x' : '-';
-    perms[10] = '\0';
+    permisos[0]=LetraTF(m);
+    if (m&S_IRUSR) permisos[1]='r';    /*propietario*/
+    if (m&S_IWUSR) permisos[2]='w';
+    if (m&S_IXUSR) permisos[3]='x';
+    if (m&S_IRGRP) permisos[4]='r';    /*grupo*/
+    if (m&S_IWGRP) permisos[5]='w';
+    if (m&S_IXGRP) permisos[6]='x';
+    if (m&S_IROTH) permisos[7]='r';    /*resto*/
+    if (m&S_IWOTH) permisos[8]='w';
+    if (m&S_IXOTH) permisos[9]='x';
+    if (m&S_ISUID) permisos[3]='s';    /*setuid, setgid y stickybit*/
+    if (m&S_ISGID) permisos[6]='s';
+    if (m&S_ISVTX) permisos[9]='t';
 
-    return perms;
+    return permisos;
 }
 
 void list_directory_contents(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
@@ -71,6 +65,7 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
         perror("opendir");
         return;
     }
+    printf("***********%s\n",directory);
 
     while ((entry = readdir(dir)) != NULL) {
         if (show_hidden || (entry->d_name[0] != '.')) {
@@ -81,7 +76,6 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
                 perror("stat");
                 continue;
             }
-
             if (long_format) {
                 char time_string[20];
                 strftime(time_string, sizeof(time_string), "%Y/%m/%d-%H:%M", localtime(&file_stat.st_mtime));
@@ -110,7 +104,7 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
                        (unsigned long) inode,
                        getpwuid(file_stat.st_uid)->pw_name,
                        getgrgid(file_stat.st_gid)->gr_name,
-                       get_permission_string(file_stat.st_mode, directory),
+                       ConvierteModo2(file_stat.st_mode),
                        file_stat.st_size,
                        entry->d_name,
                        link_format ? "->" : "",
@@ -140,7 +134,6 @@ void list_recursive_before(char *directory, int show_hidden, int long_format, in
         return;
     }
 
-    printf("****%s****\n", directory); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_type == DT_DIR) {
@@ -158,8 +151,6 @@ void list_recursive_before(char *directory, int show_hidden, int long_format, in
 }
 
 void list_recursive_after(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
-    printf("****%s****\n", directory);
-
     list_directory_contents(directory, show_hidden, long_format, link_format, access_time);
     DIR *dir;
     struct dirent *entry;
@@ -300,7 +291,7 @@ void stat_fun(char *command, char *names[]) { //tiempo
                    (unsigned long) inode,
                    getpwuid(file_stat.st_uid)->pw_name,
                    getgrgid(file_stat.st_gid)->gr_name,
-                   get_permission_string(file_stat.st_mode, filtered_names[i]),
+                   ConvierteModo2(file_stat.st_mode),
                    link_format ? (long) bytesRead : file_stat.st_size,
                    filtered_names[i],
                    link_format ? "->" : "",
