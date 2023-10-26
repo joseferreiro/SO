@@ -111,7 +111,8 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
                        get_permission_string(file_stat.st_mode, directory),
                        file_stat.st_size,
                        entry->d_name,
-                       link_format ? "->",target_path : "","");
+                       link_format ? "->" : "",
+                       link_format ? target_path : "");
             } else if (access_time) {
                 printf("%s  %s\n", ctime(&file_stat.st_atime), entry->d_name);
             } else if (link_format) {
@@ -300,7 +301,8 @@ void stat_fun(char *command, char *names[]) { //tiempo
                    get_permission_string(file_stat.st_mode, filtered_names[i]),
                    link_format ? (long) bytesRead : file_stat.st_size,
                    filtered_names[i],
-                   link_format ? "->",target_path : "","");
+                   link_format ? "->" : "",
+                   link_format ? target_path : "");
         } else {
             printf("%ld  %s\n", file_stat.st_size, filtered_names[i]);
         }
