@@ -21,7 +21,7 @@
 
 #define MAXLEN 200
 
-int is_numeric(const char *str) { //Comprueba si un string es un número
+int es_numero(const char *str) { //Comprueba si un string es un número
     for (int i = 0; str[i] != '\0'; i++) {
         if (!isdigit(str[i])) {
             return 0;
@@ -30,12 +30,12 @@ int is_numeric(const char *str) { //Comprueba si un string es un número
     return 1;
 }
 
-int get_total_commands(tListCom list) { //Devuelve el total de comandos de la lista de comandos
+int total_comandos(tListCom list) { //Devuelve el total de comandos de la lista de comandos
     int total = 0;
-    tPosCom current = list;
-    while (current != NULL) {
+    tPosCom actual = list;
+    while (actual != NULL) {
         total++;
-        current = current->next;
+        actual = actual->next;
     }
     return total;
 }
@@ -627,7 +627,7 @@ void commandN(char *command, tListCom *list, tListFic *listfic, int *exit) {
     tPosCom i;
 
     // Comprobamos que el numero de comando introducido es válido
-    if (!is_numeric(command)) {
+    if (!es_numero(command)) {
         printf("El numero de comando introducido no es válido: %s\n", command);
         return;
     }
@@ -635,7 +635,7 @@ void commandN(char *command, tListCom *list, tListFic *listfic, int *exit) {
     int commandNumber = atoi(command);
 
     // Comprobamos que el número de comando introducido esta en la lista de commandos
-    if (commandNumber < 1 || commandNumber > get_total_commands(*list)) {
+    if (commandNumber < 1 || commandNumber > total_comandos(*list)) {
         printf("El número de comando introducido no existe: %d\n", commandNumber);
         return;
     }
@@ -672,7 +672,7 @@ void Cmd_open(char *tr[], tListFic listaficheros) {
         else break;
     }
     if ((df = open(tr[1], mode, 0777)) == -1) {
-        perror("Imposible abrir fichero\n");
+        perror("Imposible abrir fichero");
         return;
     }
 
