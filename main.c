@@ -488,20 +488,14 @@ void listar_ficheros_abiertos(tListFic *list) {
     while (current != NULL) {
         char *mode_str = "";
 
-        int mode = fcntl(current->descriptor, F_GETFL);
-        if (mode == -1) {
-            perror("Error fcntl:");
-            mode_str = "Desconocido";
-        } else {
-            if (mode & O_RDONLY) mode_str = "O_RDONLY";
-            else if (mode & O_EXCL) mode_str = "O_EXCL";
-            else if (mode & O_WRONLY) mode_str = "O_WRONLY";
-            else if (mode & O_RDWR) mode_str = "O_RDWR";
-            else if (mode & O_APPEND) mode_str = "O_APPEND";
-            else if (mode & O_TRUNC) mode_str = "O_TRUNC";
-            else if (mode & O_CREAT) mode_str = "O_CREAT";
-            else mode_str = "Desconocido";
-        }
+        if (current->mode & O_RDONLY) mode_str = "O_RDONLY";
+        else if (current->mode & O_EXCL) mode_str = "O_EXCL";
+        else if (current->mode & O_WRONLY) mode_str = "O_WRONLY";
+        else if (current->mode & O_RDWR) mode_str = "O_RDWR";
+        else if (current->mode & O_APPEND) mode_str = "O_APPEND";
+        else if (current->mode & O_TRUNC) mode_str = "O_TRUNC";
+        else if (current->mode & O_CREAT) mode_str = "O_CREAT";
+        else mode_str = "Desconocido";
         printf("descriptor: %d -> %s %s\n", current->descriptor, current->nombre, mode_str);
         current = current->next;
     }
