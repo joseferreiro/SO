@@ -402,7 +402,7 @@ void delete(char *paths[]) {
 
     for (int i = 0; paths[i] != NULL; i++) {
         if (remove(paths[i]) == 0) {
-            printf("The file or directory %s has been deleted successfully\n", paths[i]);
+            printf("El fichero o directorio %s ha sido eliminado\n", paths[i]);
         } else {
             if (errno == EACCES) {
                 perror("ERROR");
