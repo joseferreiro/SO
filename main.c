@@ -218,7 +218,7 @@ void create(char *command, char *name) {
     }
 }
 
-void stat_fun(char *tr[]) { //tiempo
+void stat_fun(char *tr[]) {
     char *commands[3] ={NULL, NULL, NULL};
     char *filtered_names[20];
     char temp[MAXLEN];
@@ -271,12 +271,11 @@ void stat_fun(char *tr[]) { //tiempo
         }
 
         char time_string[20];
+        //Si -acc = 1, se guarda el tiempo de acceso, si acc = 0 se guarda el tiempo de modificación
         strftime(time_string, sizeof(time_string), "%Y/%m/%d-%H:%M",
-                 access_time ? localtime(&file_stat.st_atime) : localtime(&file_stat.st_ctime));
-
+                 access_time ? localtime(&file_stat.st_atime) : localtime(&file_stat.st_mtime));
         if (long_format) {
             char target_path[MAXLEN];
-
             ssize_t bytesRead = readlink(filtered_names[i], target_path, sizeof(target_path) - 1);
             if (link_format) {
                 if (bytesRead != -1) {
@@ -290,9 +289,7 @@ void stat_fun(char *tr[]) { //tiempo
             if (lstat(filtered_names[i], &link_stat) == -1) {
                 perror("lstat");
             }
-
             ino_t inode = link_stat.st_ino;
-
             printf("%s %lu (%lu) %s%s %s %ld %s%s%s\n",
                    time_string,
                    (unsigned long) file_stat.st_nlink,
