@@ -237,7 +237,7 @@ void stat_fun(char *tr[]) {
     int long_format = 0;
     int link_format = 0;
     int access_time = 0;
-    if (tr == NULL) {
+    if (tr[0] == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
@@ -332,7 +332,7 @@ void list_fun(char *tr[]) {
     int link_format = 0;
     int access_time = 0;
 
-    if (tr == NULL) {
+    if (tr[0] == NULL) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
