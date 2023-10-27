@@ -548,7 +548,6 @@ int TrocearCadena(const char *cadena, char *trozos[], int maxTrozos) {
     }
     //Terminamos la array en NULL para evitar que las funciones intenten acceder a la últina posición
     trozos[i] = NULL;
-
     return i;
 }
 
@@ -902,6 +901,9 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int 
 
         } else {
             printf("Comando no reconocido\n");
+        }
+        for (int i = 0; i < numt; i++) {
+            free(trozos[i]);
         }
     }
 }
