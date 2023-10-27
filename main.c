@@ -20,6 +20,7 @@
 #include <ctype.h>
 
 #define MAXLEN 200
+#define TROZOS 15  //numere de trozos que se pueden almacenar en la array trozos
 
 int es_numero(const char *str) { //Comprueba si un string es un número
     for (int i = 0; str[i] != '\0'; i++) {
@@ -76,10 +77,10 @@ char *ConvierteModo2 (mode_t m)
     return permisos;
 }
 
-void list_directory_contents(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
+void auxList_fun(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
     DIR *dir;
-    struct dirent *entry;
-    struct stat file_stat;
+    struct dirent *first;
+    struct stat stats;
 
     if ((dir = opendir(directory)) == NULL) {
         perror("opendir");
@@ -87,110 +88,119 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
     }
     printf("***********%s\n",directory);
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (show_hidden || (entry->d_name[0] != '.')) {
-            char file_path[PATH_MAX];
-            snprintf(file_path, sizeof(file_path), "%s/%s", directory, entry->d_name);
+    while ((first = readdir(dir)) != NULL) {
+        //ESTE IF ES PARA -long
+        //Si nos direon la opción -hid, las bucamos para mostrarlas
+        if (show_hidden || (first->d_name[0] != '.')) {
+            char path[PATH_MAX];
+            snprintf(path, sizeof(path), "%s/%s", directory, first->d_name);
+            //Se obtiene el path de los links simbólicos
+            char target_path[MAXLEN];
+            ssize_t bytesRead = readlink(directory, target_path, sizeof(target_path) - 1);
+            if (link_format) {
+                if (bytesRead != -1) {
+                    target_path[bytesRead] = '\0';
+                } else {
+                    link_format = 0;
+                }
+            }
 
-            if (stat(file_path, &file_stat) == -1) {
-                perror("stat");
+            if (stat(path, &stats) == -1) {
+                perror("No se pudo acceder al directorio");
                 continue;
             }
+            char time_string[20];
+            strftime(time_string, sizeof(time_string), "%Y/%m/%d-%H:%M", localtime(&stats.st_mtime));
+
             if (long_format) {
-                char time_string[20];
-                strftime(time_string, sizeof(time_string), "%Y/%m/%d-%H:%M", localtime(&file_stat.st_mtime));
 
-                char target_path[MAXLEN];
-
-                ssize_t bytesRead = readlink(directory, target_path, sizeof(target_path) - 1);
-                if (link_format) {
-                    if (bytesRead != -1) {
-                        target_path[bytesRead] = '\0';
-                    } else {
-                        link_format = 0;
-                    }
-                }
-
+                //Obtenemos las stats del directorio
                 struct stat link_stat;
                 if (lstat(directory, &link_stat) == -1) {
-                    perror("lstat");
+                    perror("No se pudo aceder al directorio");
                 }
-
+                //Salida para -long (las variables hacen que segun se acompañe de -acc o -link o ambas, la salida se adapte)
                 ino_t inode = link_stat.st_ino;
-
                 printf("%s %lu (%lu) %s%s %s %ld %s%s%s\n",
                        time_string,
-                       (unsigned long) file_stat.st_nlink,
+                       (unsigned long) stats.st_nlink,
                        (unsigned long) inode,
-                       getpwuid(file_stat.st_uid)->pw_name,
-                       getgrgid(file_stat.st_gid)->gr_name,
-                       ConvierteModo2(file_stat.st_mode),
-                       file_stat.st_size,
-                       entry->d_name,
+                       getpwuid(stats.st_uid)->pw_name,
+                       getgrgid(stats.st_gid)->gr_name,
+                       ConvierteModo2(stats.st_mode),
+                       stats.st_size,
+                       first->d_name,
                        link_format ? "->" : "",
                        link_format ? target_path : "");
             } else if (access_time) {
-                printf("%s  %s\n", ctime(&file_stat.st_atime), entry->d_name);
+                printf("%s  %s\n", time_string, first->d_name);
             } else if (link_format) {
-                if (S_ISREG(file_stat.st_mode)) {
-                    printf("%ld  %s\n", file_stat.st_size, entry->d_name);
+                if (S_ISREG(stats.st_mode)) {
+                    printf("%ld  %s %s %s\n", stats.st_size, first->d_name, link_format? "->" : "", link_format? target_path : "");
                 } else {
-                    printf("N/A  %s (not a regular file)\n", entry->d_name);
+                    printf("N/A  %s (not a regular file)\n", first->d_name);
                 }
             } else {
-                printf("%8ld %s\n", file_stat.st_size, entry->d_name);
+                printf("%8ld %s\n", stats.st_size, first->d_name);
             }
         }
     }
     closedir(dir);
 }
 
-void list_recursive_before(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
+void recb(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
     DIR *dir;
-    struct dirent *entry;
+    struct dirent *first;
 
     if ((dir = opendir(directory)) == NULL) {
         perror("opendir");
         return;
     }
 
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type == DT_DIR) {
-            char file_path[PATH_MAX];
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+    while ((first = readdir(dir)) != NULL) {
+        /*Comprobamos si first es un directorio, de ser así obtenemos los subdirectorios y hacemos
+         * la llamada recursiva sobre ellos */
+        if (first->d_type == DT_DIR) {
+            char path[PATH_MAX];
+            //Nos saltamos . y .. para evitar un bucle infinito
+            if (strcmp(first->d_name, ".") == 0 || strcmp(first->d_name, "..") == 0) {
                 continue;
             }
-            snprintf(file_path, sizeof(file_path), "%s/%s", directory, entry->d_name);
-            list_recursive_before(file_path, show_hidden, long_format, link_format, access_time);
+            //Contruimos path (el camino al siguiente directorio)
+            snprintf(path, sizeof(path), "%s/%s", directory, first->d_name);
+            recb(path, show_hidden, long_format, link_format, access_time);
         }
     }
-
     closedir(dir);
-    list_directory_contents(directory, show_hidden, long_format, link_format, access_time);
+    //Listamos los contenidos
+    auxList_fun(directory, show_hidden, long_format, link_format, access_time);
 }
 
-void list_recursive_after(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
-    list_directory_contents(directory, show_hidden, long_format, link_format, access_time);
+void reca(char *directory, int show_hidden, int long_format, int link_format, int access_time) {
+    //Listamos los contenidos
+    auxList_fun(directory, show_hidden, long_format, link_format, access_time);
     DIR *dir;
-    struct dirent *entry;
+    struct dirent *first;
 
     if ((dir = opendir(directory)) == NULL) {
         perror("opendir");
         return;
     }
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type == DT_DIR) {
-            char file_path[PATH_MAX];
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+    while ((first = readdir(dir)) != NULL) {
+        /*Comprobamos si first es un directorio, de ser así obtenemos los subdirectorios y hacemos
+         * la llamada recursiva sobre ellos */
+        if (first->d_type == DT_DIR) {
+            char path[PATH_MAX];
+            //Nos saltamos . y .. para evitar un bucle infinito
+            if (strcmp(first->d_name, ".") == 0 || strcmp(first->d_name, "..") == 0) {
                 continue;
             }
-            snprintf(file_path, sizeof(file_path), "%s/%s", directory, entry->d_name);
-            list_recursive_after(file_path, show_hidden, long_format, link_format, access_time);
+            //Contruimos path (el camino al siguiente directorio)
+            snprintf(path, sizeof(path), "%s/%s", directory, first->d_name);
+            reca(path, show_hidden, long_format, link_format, access_time);
         }
     }
-
     closedir(dir);
 }
 
@@ -201,17 +211,19 @@ void create(char *command, char *name) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
-            perror("No se pudo encontrar el directorio actual: ");
+            perror("No se pudo encontrar el directorio actual");
         }
-    } else if (command != NULL && name == NULL) { // Si no hay nombre pero si opción significa que la opción es el nombre
+        // Si no hay nombre pero si opción significa que la opción es el nombre
+    } else if (command != NULL && name == NULL) {
         int result = mkdir(command, 0700);
         if (result == -1) {
-            perror("No se pudo crear el directorio: ");
+            perror("No se pudo crear el directorio");
         }
-    } else if (!strcmp(command, "-f") && name != NULL) { // Si la opción el 2-f", crea un fichero con el nombre proporcionado
+        // Si la opción el 2-f", crea un fichero con el nombre proporcionado
+    } else if (!strcmp(command, "-f") && name != NULL) {
         int fd = creat(name, 0666);
         if (fd == -1) {
-            perror("No se pudo crear el fichero: ");
+            perror("No se pudo crear el fichero");
         } else {
             close(fd);
         }
@@ -229,11 +241,12 @@ void stat_fun(char *tr[]) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
-            perror("stat");
+            perror("No se pudo encontrar el directorio actual");
         }
         return;
     }
 
+    //Inicializamos filtered_names a NULL
     for (int i = 0; i < 20; i++) {
         filtered_names[i] = NULL;
     }
@@ -241,7 +254,8 @@ void stat_fun(char *tr[]) {
     int cmd_index = 0;
     int names_index = 0;
 
-    // Filtramos entre las opciones del comando y los nombres de ficheros y/o directorios
+    /*Navegamos por la array tr[] y vamos guardando las opciones en commands[] hasta encontrar un item que no se
+     * corresponde con una de las opciones, entonces se guardan el resto de items en la array filtered_names */
     for (int i = 0; tr[i] != NULL; i++) {
         if (!strcmp(tr[i], "-long") || !strcmp(tr[i], "-link") || !strcmp(tr[i], "-acc")) {
             commands[cmd_index++] = tr[i];
@@ -264,14 +278,14 @@ void stat_fun(char *tr[]) {
 
     for (int i = 0; filtered_names[i] != NULL; i++) {
         struct stat file_stat;
-
         if (stat(filtered_names[i], &file_stat) == -1) {
-            perror("stat");
+            perror("No se pudo encontrar el directorio o fichero");
             continue;
         }
 
         char time_string[20];
-        //Si -acc = 1, se guarda el tiempo de acceso, si acc = 0 se guarda el tiempo de modificación
+        /*Si -acc = 1 (se introdució la opción -acc), se guarda el tiempo de acceso, si acc = 0 (no se introdució
+         * la opción -acc) se guarda el tiempo de modificación */
         strftime(time_string, sizeof(time_string), "%Y/%m/%d-%H:%M",
                  access_time ? localtime(&file_stat.st_atime) : localtime(&file_stat.st_mtime));
         if (long_format) {
@@ -287,7 +301,7 @@ void stat_fun(char *tr[]) {
 
             struct stat link_stat;
             if (lstat(filtered_names[i], &link_stat) == -1) {
-                perror("lstat");
+                perror("No se pudo encontrar el directorio o fichero");
             }
             ino_t inode = link_stat.st_ino;
             printf("%s %lu (%lu) %s%s %s %ld %s%s%s\n",
@@ -322,33 +336,31 @@ void list_fun(char *tr[]) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
-            perror("list");
+            perror("No se pudo encontrar el directorio actual");
         }
         return;
     }
 
-    // Initialize arrays
+    //Inicializamos filtered_names a NULL
     for (int i = 0; i < 20; i++) {
         filtered_names[i] = NULL;
     }
 
-    // Separate commands and names
-    int cmd_index = 0;
-    int names_index = 0;
+    int ops = 0;
+    int names = 0;
 
-    // Filter and separate names
+    /*Navegamos por la array tr[] y vamos guardando las opciones en commands[] hasta encontrar un item que no se
+     * corresponde con una de las opciones, entonces se guardan el resto de items en la array filtered_names */
     for (int i = 0; tr[i] != NULL; i++) {
         if (!strcmp(tr[i], "-reca") || !strcmp(tr[i], "-recb") || !strcmp(tr[i], "-hid") ||
             !strcmp(tr[i], "-long") || !strcmp(tr[i], "-link") || !strcmp(tr[i], "-acc")) {
-            commands[cmd_index++] = tr[i];
+            commands[ops++] = tr[i];
         } else {
-            filtered_names[names_index++] = tr[i];
+            filtered_names[names++] = tr[i];
         }
     }
 
-    // Handle commands and filtered names
     for (int i = 0; commands[i] != NULL; i++) {
-        // Handle commands
         if (strcmp(commands[i], "-reca") == 0) {
             recursive_after = 1;
         } else if (strcmp(commands[i], "-recb") == 0) {
@@ -364,16 +376,15 @@ void list_fun(char *tr[]) {
         }
     }
 
-    // Handle filtered names
     for (int i = 0; filtered_names[i] != NULL; i++) {
         char *current_directory = filtered_names[i];
 
         if (recursive_before) {
-            list_recursive_before(current_directory, show_hidden, long_format, link_format, access_time);
+            recb(current_directory, show_hidden, long_format, link_format, access_time);
         } else if (recursive_after) {
-            list_recursive_after(current_directory, show_hidden, long_format, link_format, access_time);
+            reca(current_directory, show_hidden, long_format, link_format, access_time);
         } else {
-            list_directory_contents(current_directory, show_hidden, long_format, link_format, access_time);
+            auxList_fun(current_directory, show_hidden, long_format, link_format, access_time);
         }
     }
 }
@@ -384,7 +395,7 @@ void delete(char *paths[]) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
-            perror("delete");
+            perror("No se pudo encontrar el directorio actual");
         }
         return;
     }
@@ -399,12 +410,12 @@ void delete(char *paths[]) {
                 perror("ERROR");
             } else if (errno == ENOTDIR) {
                 if (rmdir(paths[i]) == 0) {
-                    printf("The directory %s has been deleted successfully\n", paths[i]);
+                    printf("El directorio %s ha sido eliminado\n", paths[i]);
                 } else {
                     perror("ERROR");
                 }
             } else {
-                printf("Error deleting the file or directory %s\n", paths[i]);
+                printf("No se pudo eliminar %s\n", paths[i]);
             }
         }
     }
@@ -420,22 +431,21 @@ void deltree(char *paths[]) {
         if (getcwd(temp, PATH_MAX) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
-            perror("list");
+            perror("No se pudo encontrar el directorio actual");
         }
         return;
     }
 
-    // Process each path in the array
+
     for (int i = 0; paths[i] != NULL; i++) {
 
         if (lstat(paths[i], &statbuf) == -1) {
-            // Handle the "No such file or directory" error
-            perror("lstat");
+            perror("No se pudo encontrar el directorio o fichero");
             continue;
         }
 
         if ((dir = opendir(paths[i])) == NULL) {
-            perror("opendir");
+            perror("No se pudo acceder al directorio");
             return;
         }
 
@@ -444,7 +454,7 @@ void deltree(char *paths[]) {
             snprintf(full_path, sizeof(full_path), "%s/%s", paths[i], entry->d_name);
 
             if (lstat(full_path, &statbuf) == -1) {
-                perror("lstat");
+                perror("No se pudo encontrar el directorio o fichero");
                 continue;
             }
 
@@ -452,18 +462,17 @@ void deltree(char *paths[]) {
                 if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
                     continue;
                 }
-                deltree((char *[]) {full_path, NULL }); // Recursively delete the contents
+                deltree((char *[]) {full_path, NULL });
             } else {
                 if (unlink(full_path) != 0) {
-                    perror("unlink");
+                    perror("No se pudo eliminar el archivo");
                 }
             }
         }
-
         closedir(dir);
 
         if (rmdir(paths[i]) != 0) {
-            perror("rmdir");
+            perror("No se pudo eliminar el directorio");
         }
     }
 }
@@ -471,7 +480,8 @@ void deltree(char *paths[]) {
 char *nombre_fichero_descriptor(tListFic list, int df) {
     tPosFic current = list;
 
-    while (current != NULL) { //Mientras que no encuentra y guarda la copia de current->nombre (coincidente con el descriptor de fichero) sigue buscandolo en la lista
+    //Mientras que no encuentra y guarda la copia de current->nombre (coincidente con el descriptor de fichero) sigue buscandolo en la lista
+    while (current != NULL) {
         if (current->descriptor == df) {
             return strdup(current->nombre);
         }
@@ -501,12 +511,44 @@ void listar_ficheros_abiertos(tListFic *list) {
     }
 }
 
-int TrocearCadena(char * cadena, char * trozos[]){
-    int i=1;
-    if ((trozos[0]=strtok(cadena," \n\t"))==NULL)
-        return 0;
-    while ((trozos[i]=strtok(NULL," \n\t"))!=NULL)
-        i++;
+int TrocearCadena(const char *cadena, char *trozos[], int maxTrozos) {
+    int i = 0;
+    int comilla = 0;
+    const char *start = cadena;
+
+    while (*cadena && i < maxTrozos - 1) {
+        if (*cadena == '\'') {
+            comilla = !comilla;
+        }
+
+        if ((*cadena == ' ' && !comilla) || *(cadena + 1) == '\0') {
+            int length = cadena - start + 1;  // Include the space or the null terminator
+            if (length > 0) {
+                // Comprobamos si el trozo de string empieza con ' y la saltamos
+                if (*start == '\'') {
+                    start++;
+                    length--;
+                }
+                // Comprobamos si termina en ' y la eliminamos
+                if (start[length - 2] == '\'') {
+                    length--;
+                }
+                trozos[i] = (char *)malloc(length);
+                if (trozos[i] == NULL) {
+                    perror("No se pudo procesar el comando");
+                    exit(1);
+                }
+                strncpy(trozos[i], start, length - 1);
+                trozos[i][length - 1] = '\0';
+                i++;
+            }
+            start = cadena + 1;
+        }
+        cadena++;
+    }
+    //Terminamos la array en NULL para evitar que las funciones intenten acceder a la últina posición
+    trozos[i] = NULL;
+
     return i;
 }
 
@@ -619,7 +661,7 @@ void commandN(char *command, tListCom *list, tListFic *listfic, int *exit) {
         procesar_entrada(commandCopy, list, listfic, exit, storeCommand);
         free(commandCopy);
     } else {
-        perror("No se pudo ejecutar el comando solicitado: ");
+        perror("No se pudo ejecutar el comando solicitado");
     }
 }
 
@@ -657,10 +699,10 @@ void Cmd_close(char *command, tListFic list) {
         return;
     }
     if (close(df) == -1) {
-        perror("Imposible cerrar descriptor.\n");
+        perror("Imposible cerrar descriptor\n");
     } else {
         RemoveFic(&list, df);
-        printf("Descriptor %d cerrado y eliminado de la lista de ficheros abiertos.\n", df);
+        printf("Descriptor %d cerrado y eliminado de la lista de ficheros abiertos\n", df);
     }
 }
 
@@ -675,7 +717,7 @@ void Cmd_dup(char *command, tListFic list) {
     p = nombre_fichero_descriptor(list, df);
 
     if ((duplicado = dup(df)) == -1) {
-        perror("Error duplicando el fichero: \n");
+        perror("Error duplicando el fichero\n");
         return;
     }
     snprintf(aux, sizeof(aux), "%s", p);
@@ -795,12 +837,11 @@ void leerEntrada(char *command){
 }
 
 void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit, int storeCommand) {
-    char *trozos[10];
+    char *trozos[TROZOS];
 
     if(storeCommand)
         InsertCommand(listcom, command);
-    int numt = TrocearCadena(command, trozos);
-
+    int numt = TrocearCadena(command, trozos, TROZOS);
     if (numt > 0) {
         if (!strcmp(trozos[0], "authors")) {
             authors(trozos[1]);
@@ -860,7 +901,7 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int 
             deltree(trozos + 1);
 
         } else {
-            printf("comando no reconocido\n");
+            printf("Comando no reconocido\n");
         }
     }
 }
