@@ -120,7 +120,7 @@ void list_directory_contents(char *directory, int show_hidden, int long_format, 
 
                 printf("%s %lu (%lu) %s%s %s %ld %s%s%s\n",
                        time_string,
-                       (unsigned long)file_stat.st_nlink,
+                       (unsigned long) file_stat.st_nlink,
                        (unsigned long) inode,
                        getpwuid(file_stat.st_uid)->pw_name,
                        getgrgid(file_stat.st_gid)->gr_name,
