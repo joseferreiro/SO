@@ -201,17 +201,17 @@ void create(char *command, char *name) {
         if (getcwd(temp, MAXLEN) != NULL) {
             printf("Directorio actual: %s\n", temp);
         } else {
-            perror("create"); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+            perror("No se pudo encontrar el directorio actual: ");
         }
-    } else if (command != NULL && name == NULL) {
+    } else if (command != NULL && name == NULL) { // Si no hay nombre pero si opción significa que la opción es el nombre
         int result = mkdir(command, 0700);
         if (result == -1) {
-            perror("create"); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+            perror("No se pudo crear el directorio: ");
         }
-    } else if (!strcmp(command, "-f") && name != NULL) {
+    } else if (!strcmp(command, "-f") && name != NULL) { // Si la opción el 2-f", crea un fichero con el nombre proporcionado
         int fd = creat(name, 0666);
         if (fd == -1) {
-            perror("create"); //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+            perror("No se pudo crear el fichero: ");
         } else {
             close(fd);
         }
