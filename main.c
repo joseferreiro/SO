@@ -471,7 +471,7 @@ void deltree(char *paths[]) {
 char *nombre_fichero_descriptor(tListFic list, int df) {
     tPosFic current = list;
 
-    while (current != NULL) {
+    while (current != NULL) { //Mientras que no encuentra y guarda la copia de current->nombre (coincidente con el descriptor de fichero) sigue buscandolo en la lista
         if (current->descriptor == df) {
             return strdup(current->nombre);
         }
@@ -614,11 +614,11 @@ void commandN(char *command, tListCom *list, tListFic *listfic, int *exit) {
         printf("El número de comando introducido no existe: %d\n", commandNumber);
         return;
     }
-    //Se recorre la lista en busca del comando indicado
+    // Se recorre la lista en busca del comando indicado
     for (i = *list; i->next != NULL && p <= commandNumber; i = i->next) {
         p++;
     }
-
+    // Se crea una copia de i-> command para evitar modificar el guardado en la lista, y se pasa a procesar_entrada, pero diciendole que no lo guarde en la lista de comandos
     char *commandCopy = strdup(i->command);
     if (commandCopy != NULL) {
         int storeCommand = 0;
