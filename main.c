@@ -34,7 +34,7 @@ int es_numero(const char *str) { //Comprueba si un string es un número
 int total_comandos(tListCom list) { //Devuelve el total de comandos de la lista de comandos
     int total = 0;
     tPosCom actual = list;
-    while (actual != NULL) {
+    while (actual->next != NULL) {
         total++;
         actual = actual->next;
     }
@@ -633,7 +633,7 @@ void hist(char *command, tListCom *list){
 void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, int *exit, int storeCommand);
 
 void commandN(char *command, tListCom *list, tListFic *listfic, int *exit) {
-    int p = 1;
+    int p = 0;
     tPosCom i;
 
     // Comprobamos que el numero de comando introducido es válido
@@ -645,12 +645,12 @@ void commandN(char *command, tListCom *list, tListFic *listfic, int *exit) {
     int commandNumber = atoi(command);
 
     // Comprobamos que el número de comando introducido esta en la lista de commandos
-    if (commandNumber < 1 || commandNumber > total_comandos(*list)) {
+    if (commandNumber < 0 || commandNumber >= total_comandos(*list)) {
         printf("El número de comando introducido no existe: %d\n", commandNumber);
         return;
     }
     // Se recorre la lista en busca del comando indicado
-    for (i = *list; i->next != NULL && p <= commandNumber; i = i->next) {
+    for (i = *list; i->next != NULL && p < commandNumber; i = i->next) {
         p++;
     }
     // Se crea una copia de i-> command para evitar modificar el guardado en la lista, y se pasa a procesar_entrada, pero diciendole que no lo guarde en la lista de comandos
