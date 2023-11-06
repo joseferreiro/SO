@@ -18,9 +18,57 @@
 #include <errno.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <sys/wait.h>
 
 #define MAXLEN 200
 #define TROZOS 15  //numere de trozos que se pueden almacenar en la array trozos
+#define TAMANO 2048
+
+void Recursiva (int n) {
+    char automatico[TAMANO];
+    static char estatico[TAMANO];
+
+    printf ("parametro:%3d(%p) array %p, arr estatico %p\n",n,&n,automatico, estatico);
+
+    if (n>0)
+        Recursiva(n-1);
+}
+
+void Do_MemPmap (void) { /*sin argumentos*/
+    pid_t pid;       /*hace el pmap (o equivalente) del proceso actual*/
+    char elpid[32];
+    char *argv[4]={"pmap",elpid,NULL};
+
+    sprintf (elpid,"%d", (int) getpid());
+    if ((pid=fork())==-1){
+        perror ("Imposible crear proceso");
+        return;
+    }
+    if (pid==0){ /*proceso hijo*/
+        if (execvp(argv[0],argv)==-1)
+            perror("cannot execute pmap (linux, solaris)");
+
+        argv[0]="vmmap"; argv[1]="-interleave"; argv[2]=elpid;argv[3]=NULL;
+        if (execvp(argv[0],argv)==-1) /*probamos vmmap Mac-OS*/
+            perror("cannot execute vmmap (Mac-OS)");
+
+        argv[0]="procstat"; argv[1]="vm"; argv[2]=elpid; argv[3]=NULL;
+        if (execvp(argv[0],argv)==-1)/*No hay pmap, probamos procstat FreeBSD */
+            perror("cannot execute procstat (FreeBSD)");
+
+        argv[0]="procmap",argv[1]=elpid;argv[2]=NULL;
+        if (execvp(argv[0],argv)==-1)  /*probamos procmap OpenBSD*/
+            perror("cannot execute procmap (OpenBSD)");
+
+        exit(1);
+    }
+    waitpid (pid,NULL,0);
+}
+
+void malloc_fun (size_t size){
+    malloc(size);
+
+}
 
 int es_numero(const char *str) { //Comprueba si un string es un número
     for (int i = 0; str[i] != '\0'; i++) {
