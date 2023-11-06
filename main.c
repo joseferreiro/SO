@@ -869,7 +869,37 @@ void help(char *command){
     }else if (!strcmp(command, "deltree")){
         printf("deltree [name1 name2 ..]\t Borra ficheros o diretorios no vacios recursivamente\n");
 
-    }else{
+    }else if (!strcmp((command), "malloc")){
+        printf("");
+
+    }else if (!strcmp((command), "shared")){
+        printf("");
+
+    }else if (!strcmp((command), "mmap")){
+        printf("");
+
+    }else if (!strcmp((command), "read")){
+        printf("");
+
+    }else if (!strcmp((command), "write")){
+        printf("");
+
+    }else if (!strcmp((command), "memdump")){
+        printf("");
+
+    }else if (!strcmp((command), "memfill")){
+        printf("");
+
+    }else if (!strcmp((command), "mem")){
+        printf("");
+
+    }else if (!strcmp((command),"recurse")){
+        printf("");
+
+    }
+
+
+    else{
         printf("comando no reconocido.\n");
 
     }
