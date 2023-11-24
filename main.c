@@ -42,7 +42,6 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <sys/wait.h>
-#include <stdbool.h>
 
 #include <sys/mman.h>
 #include <sys/shm.h>
