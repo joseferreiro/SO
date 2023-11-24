@@ -61,37 +61,6 @@ int gnd1, gnd2, gnd3;
 static int gsd1 = 342, gsd2 = 423, gsd3=324;
 static int gsnd1, gsnd2, gsnd3;
 
-/*
-void RepeatHistoric(undefined8 param_1,uint param_2)
-
-{
-    int iVar1;
-    undefined local_5018 [16384];
-    char local_1018 [4104];
-    char *local_10;
-
-    loopHistoric = loopHistoric + 1;
-    local_10 = (char *)GetHistoric(LH,param_2);
-    if (local_10 == (char *)0x0) {
-        printf("No hay elemento %d en el historico\n",(ulong)param_2);
-    }
-    else {
-        strcpy(local_1018,local_10);
-        printf("Ejecutando hist (%d): %s\n",(ulong)param_2,local_1018);
-        iVar1 = TrocearCadena(local_1018,local_5018);
-        if (iVar1 == 0) {
-            printf("Nada que ejecutar en el elemento %d del historico\n",(ulong)param_2);
-        }
-        else if (loopHistoric < 0xb) {
-            ProcesarEntrada(local_5018);
-        }
-        else {
-            puts("Demasiada recursion en hist");
-        }
-    }
-    return;
-}
- */
 
 ssize_t LeerFichero(char *f, void *p, size_t cont) {
     struct stat s;
@@ -203,9 +172,8 @@ void write_fun(char **params, tListMem *lista) {
         return;
     }
 
-    // Ensure the provided buffer size does not exceed the node's size
     if (bufferSize > node->size) {
-        puts("Invalid buffer size");
+        puts("Error con el tamaño de buffer");
         return;
     }
 
