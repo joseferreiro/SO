@@ -46,6 +46,7 @@
 
 #include <sys/mman.h>
 #include <sys/shm.h>
+#include <stdint-gcc.h>
 
 #define MAXLEN 200
 #define TROZOS 15  //numere de trozos que se pueden almacenar en la array trozos
@@ -808,37 +809,90 @@ void DisplayLine(long address, int length) {
 
 void DisplayMemory(long address, size_t size) {
     size_t chunkSize;
+    size_t remainingBytes = size;
 
     for (chunkSize = 0; chunkSize < (size >> 4); chunkSize++) {
-        DisplayLine(address, 0x19);
-        address += 0x19;
+        DisplayLine(address, 0x10);
+        address += 0x10;
+        remainingBytes -= 0x10;
     }
-    DisplayLine(address, (int)size % 0x19);
-}
 
-void Cmd_memdump(long *commandParams) {
-    long address;
-    size_t size;
-
-    if (commandParams[0] != 0 && commandParams[1] != 0) {
-        address = (long)commandParams[0];
-        size = strtoul((char *)commandParams[1], (char **)0x0, 10);
-        printf("Dumping %zu bytes from the address %p\n", size, (void *)address);
-        DisplayMemory(address, size);
+    if (remainingBytes > 0) {
+        DisplayLine(address - remainingBytes, (int)remainingBytes);
     }
 }
 
+const char *CadBon(int value) {
+    // Check for special characters
+    if (value == '\n') {
+        return "newline";
+    } else if (value == '\t') {
+        return "tab";
+    } else if (value == '\r') {
+        return "carriage return";
+    } else if (value >= 32 && value <= 126) {
+        // Printable ASCII characters
+        static char printable[3];
+        printable[0] = ' ';
+        printable[1] = (char)value;
+        printable[2] = '\0';
+        return printable;
+    } else {
+        // Non-printable or special characters
+        return "non-printable";
+    }
+}
 
+void MostrarLinea(void *address, int length) {
+    u_char *ptr = address;
+    int i;
+    printf("\n");
+
+    for (i = 0; i < length; ++i) {
+        printf(" %02x", ptr[i]);
+    }
+    putchar('\n');
+
+    for (i = 0; i < length; ++i) {
+        printf(" %s", CadBon(ptr[i]));
+    }
+    putchar('\n');
+}
+
+void MostrarMemoria(void *address, size_t size) {
+    uint8_t *ptr = (uint8_t *)address;
+
+    for (size_t i = 0; i < size; ++i) {
+        printf("%02x ", ptr[i]);
+    }
+
+    putchar('\n');
+}
+
+unsigned long long cadtop(char *str) {
+    unsigned long long result = 0;
+    sscanf(str, "%llx", &result);
+    return result;
+}
+
+void Cmd_memdump(char **params) {
+    unsigned long long count = 0x19; // Default count
+    if (params[1] != NULL) {
+        count = strtoull(params[1], (char **)0x0, 10);
+    }
+
+    unsigned long long address = cadtop(params[0]);
+    printf("Dumping %llu bytes from address %p\n", count, (void *)address);
+    MostrarMemoria((void *) address, count);
+}
 
 //----------------------------------------------------
 
-
-ulong ConvertByte(char *param)
-{
-    if (*param == '\'' && param[2] == '\'') {
+ulong ConvertByte(const char *param) {
+    if (param[0] == '\'' && param[2] == '\'' && param[3] == '\0') {
         return (ulong)(u_char)param[1];
     } else {
-        return strtoul(param, (char **)0, 0);
+        return strtoul(param, NULL, 0);
     }
 }
 
@@ -851,26 +905,43 @@ void LlenarMemoria (void *p, size_t cont, unsigned char byte)
         arr[i]=byte;
 }
 
-void Cmd_memfill(long *params)
-{
-    ulong size = 0x80;
-    u_char fillByte = 0x41;
-
-    if (params[0] != 0) {
-        if (params[1] != 0) {
-            size = strtoul((char *)params[1], (char **)0, 10);
-            if (params[2] != 0) {
-                fillByte = (u_char)ConvertByte((char *)params[2]);
-            }
-        }
-
-        // Assuming the first parameter is the address in hexadecimal format
-        long address = strtol((char *)params[0], (char **)0, 16);
-        printf("Filling %zu bytes of memory with byte %lu (%02lx) at address %p\n",
-               size, (ulong)fillByte, (ulong)fillByte, (void *)address);
-
-        LlenarMemoria((void *)address, size, fillByte);
+void Cmd_memfill(long *params) {
+    if (params[0] == 0) {
+        printf("Missing address parameter\n");
+        return;
     }
+
+    // Parse and validate address
+    long address = strtol((char *)params[0], NULL, 16);
+    if (address == 0 && errno == EINVAL) {
+        perror("Invalid address");
+        return;
+    }
+
+    // Parse and validate size
+    ulong size = 0x80;
+    if (params[1] != 0) {
+        size = strtoul((char *)params[1], NULL, 10);
+        if (size == 0 && errno == EINVAL) {
+            perror("Invalid size");
+            return;
+        }
+    }
+
+    // Parse and validate fill byte
+    u_char fillByte = 0x41;
+    if (params[2] != 0) {
+        fillByte = (u_char)ConvertByte((char *)params[2]);
+        if (fillByte == 0 && errno == EINVAL) {
+            perror("Invalid fill byte");
+            return;
+        }
+    }
+
+    printf("Filling %zu bytes of memory with byte %lu (%02lx) at address %p\n",
+           size, (ulong)fillByte, (ulong)fillByte, (void *)address);
+
+    LlenarMemoria((void *)address, size, fillByte);
 }
 
 //----------------------------------------------------
@@ -1819,7 +1890,7 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             Cmd_write(trozos + 1, listamemoria);
 
         } else  if (!strcmp(trozos[0], "memdump")){
-            Cmd_memdump((long *) (trozos + 1));
+            Cmd_memdump((trozos + 1));
 
         } else  if (!strcmp(trozos[0], "memfill")){
             Cmd_memfill((long *) (trozos + 1));

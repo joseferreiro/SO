@@ -1,6 +1,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/shm.h>
+#include <sys/mman.h>
 #include "lista_memoria.h"
 
 void CreateListMemBlock(tListMem *list) {
@@ -144,9 +145,18 @@ void ClearListMemBlock(tListMem *list) {
     tPosMem next;
 
     while (current != NULL) {
+        // Check if the node is a mapped file
         if ((current->memoryInfo.allocationType & MEM_TYPE_MMAP_FLAG) != 0) {
-            free(current->memoryInfo.otherInfo.mappedFile.fileName);
+            // Free the filename if it exists
+            if (current->memoryInfo.otherInfo.mappedFile.fileName != NULL) {
+                free(current->memoryInfo.otherInfo.mappedFile.fileName);
+            }
+            // Use munmap to release the mapped file memory
+            if (current->direccion != 0) {
+                munmap((void *)current->direccion, current->size);
+            }
         } else if ((current->memoryInfo.allocationType & MEM_TYPE_MALLOC_FLAG) != 0) {
+            // Node allocated using malloc, free the memory
             free((void *)current->direccion);
         }
 
