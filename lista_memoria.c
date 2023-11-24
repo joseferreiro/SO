@@ -177,3 +177,19 @@ tPosMem FindNodeByAddressMem(tListMem *lista, ulong address) {
 
     return NULL;
 }
+
+int FindNodeByKey(tListMem *lista, int key, char type) {
+    int index = 0;
+
+    tPosMem current = *lista;
+
+    while (current != NULL) {
+        if (type == '\x02' && current->type_alloc == 2 && key == (int)current->memoryInfo.otherInfo.sharedMemoryKey) {
+            return index;
+        }
+        current = current->next;
+        index++;
+    }
+
+    return -1;
+}

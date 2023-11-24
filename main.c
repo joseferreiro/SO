@@ -52,15 +52,14 @@
 #define TROZOS 15  //numere de trozos que se pueden almacenar en la array trozos
 #define TAMANO 2048
 
-#define MAP_SHARED 0x01  // Replace with the actual value
-#define MAP_READ 0x02  // Replace with the actual value
-#define MAP_WRITE 0x04  // Replace with the actual value
-#define MAP_EXECUTE 0x08  // Replace with the actual value
+#define MAP_READ 0x02
+#define MAP_WRITE 0x04
+#define MAP_EXECUTE 0x08
 
-int h = 32, pi = 423, e = 4376;
-int V1, V2, V3;
-static int x_5 = 342, y_4 = 423, z_3=324;
-static int a_2, b_1, c_0;
+int gd1 = 32, gd2 = 423, gd3 = 4376;  //variables para mem
+int gnd1, gnd2, gnd3;
+static int gsd1 = 342, gsd2 = 423, gsd3=324;
+static int gsnd1, gsnd2, gsnd3;
 
 /*
 void RepeatHistoric(undefined8 param_1,uint param_2)
@@ -92,26 +91,8 @@ void RepeatHistoric(undefined8 param_1,uint param_2)
     }
     return;
 }
-
- void Cmd_command(char **param_1)
-
-{
-  int iVar1;
-
-  if (*param_1 == (char *)0x0) {
-    PrintHistoric(LH,0x1000);
-  }
-  else {
-    iVar1 = atoi(*param_1);
-    RepeatHistoric(LH,iVar1);
-  }
-  return;
-}
  */
 
-
-
-// Function to read file contents into a buffer
 ssize_t LeerFichero(char *f, void *p, size_t cont) {
     struct stat s;
     ssize_t n;
@@ -142,7 +123,6 @@ ssize_t LeerFichero(char *f, void *p, size_t cont) {
     return n;
 }
 
-// Function to write buffer contents to a file
 ssize_t EscribirFichero(char *f, void *p, size_t cont, int overwrite) {
     ssize_t n;
     int df, aux, flags = O_CREAT | O_EXCL | O_WRONLY;
@@ -163,70 +143,63 @@ ssize_t EscribirFichero(char *f, void *p, size_t cont, int overwrite) {
     return n;
 }
 
-// Command to read file contents and write them to a memory address
-void Cmd_read(char *ar[]) {
+void read_fun(char *ar[]) {
     void *p;
-    size_t cont = -1;  // -1 indicates reading the entire file
+    size_t cont = -1;  // -1 indica leer todo el fichero
     ssize_t n;
 
     if (ar[0] == NULL || ar[1] == NULL) {
-        fprintf(stderr, "Missing parameters\n");
+        fprintf(stderr, "Faltan parametros\n");
         return;
     }
 
-    // Convert from string to pointer
     p = (void *)strtoul(ar[1], (char **)0, 16);
 
     if (ar[2] != NULL) {
-        // Convert from string to size_t
         cont = (size_t)atoll(ar[2]);
     }
 
     n = LeerFichero(ar[0], p, cont);
 
     if (n != -1) {
-        printf("Read %zd bytes from %s into %p\n", n, ar[0], p);
+        printf("Leidos %zd bytes de %s a %p\n", n, ar[0], p);
     }
 }
 
-void Cmd_write(char **params, tListMem *lista) {
+void write_fun(char **params, tListMem *lista) {
     int overwrite = 0;
     char **parameters = params;
 
     if (*parameters == NULL) {
-        puts("Missing parameters");
+        puts("Faltan parametros");
         return;
     }
 
-    // Check for the overwrite flag
     if (strcmp(*parameters, "-o") == 0) {
         overwrite = 1;
         parameters++;
         if (*parameters == NULL) {
-            puts("Missing parameters");
+            puts("Faltan parametros");
             return;
         }
     }
 
-    // Parse file, address, and size
     char *file = parameters[0];
     unsigned long userAddress;
     if (sscanf(parameters[1], "%lx", &userAddress) != 1) {
-        puts("Invalid address");
+        puts("Dirección no válida");
         return;
     }
 
-    // Read the size directly from the prompt
     size_t bufferSize;
     if (sscanf(parameters[2], "%zu", &bufferSize) != 1) {
-        puts("Invalid buffer size");
+        puts("Tamaño del buffer no válido");
         return;
     }
 
-    // Find the node using the provided address
     tPosMem node = FindNodeByAddressMem(lista, (ulong)userAddress);
     if (node == NULL) {
-        perror("Unable to find node");
+        perror("No se encontró la dirección de memoria");
         return;
     }
 
@@ -236,19 +209,18 @@ void Cmd_write(char **params, tListMem *lista) {
         return;
     }
 
-    // Use the existing memory specified by the user as the buffer
     void *buffer = (void *)userAddress;
 
     ssize_t bytesWritten = EscribirFichero(file, buffer, bufferSize, overwrite);
 
     if (bytesWritten == -1) {
-        perror("Unable to write file");
+        perror("No se pudo escribir el fichero");
     } else {
-        printf("Written %zd bytes to %s from %p\n", bytesWritten, file, (void *)userAddress);
+        printf("Escritos %zd bytes a %s desde %p\n", bytesWritten, file, (void *)userAddress);
     }
 }
 
-void doMalloc(size_t tamano, tListMem *lista) {
+void MallocAux(size_t tamano, tListMem *lista) {
     void *memoria = malloc(tamano);
 
     if (memoria == NULL) {
@@ -259,7 +231,7 @@ void doMalloc(size_t tamano, tListMem *lista) {
     }
 }
 
-ulong BuscarNodoDireccionMalloc(tListMem *lista, size_t size) {
+ulong GetNodeAddressMalloc(tListMem *lista, size_t size) {
     int local_c = 0;
     tNodeMem *current = *lista;
 
@@ -274,8 +246,8 @@ ulong BuscarNodoDireccionMalloc(tListMem *lista, size_t size) {
     return -1;
 }
 
-ulong DireccionNodoMalloc(tListMem *lista, size_t size) {
-    ulong index = BuscarNodoDireccionMalloc(lista, size);
+ulong NodeAddressMalloc(tListMem *lista, size_t size) {
+    ulong index = GetNodeAddressMalloc(lista, size);
 
     if (index == -1) {
         return 0;
@@ -290,17 +262,17 @@ ulong DireccionNodoMalloc(tListMem *lista, size_t size) {
     return current->direccion;
 }
 
-void doMallocDealloc(size_t size, tListMem *lista) {
-    ulong direccion = DireccionNodoMalloc(lista, size);
+void Dealloc(size_t size, tListMem *lista) {
+    ulong direccion = NodeAddressMalloc(lista, size);
 
     if (direccion == 0) {
-        puts("No hay bloque de ese tamaño asignado con malloc");
+        puts("No hay bloques de ese tamaño asignado con malloc");
     } else {
         RemoveNodeByAddress(lista, direccion);
     }
 }
 
-void Cmd_memmalloc(char **args, tListMem *lista) {
+void Malloc(char **args, tListMem *lista) {
     if (*args == NULL) {
         PrintList(lista,0);
     } else {
@@ -308,12 +280,12 @@ void Cmd_memmalloc(char **args, tListMem *lista) {
         if (size == 0) {
             puts("No se asignan bloques de 0 bytes");
         } else {
-            doMalloc(size, lista);
+            MallocAux(size, lista);
         }
     }
 }
 
-void Cmd_memdemalloc(char **args, tListMem *lista) {
+void Demalloc(char **args, tListMem *lista) {
     if (*args == NULL) {
         PrintList(lista,0);
     } else {
@@ -321,16 +293,16 @@ void Cmd_memdemalloc(char **args, tListMem *lista) {
         if (size == 0) {
             puts("No se asignan bloques de 0 bytes");
         } else {
-            doMallocDealloc(size, lista);
+            Dealloc(size, lista);
         }
     }
 }
 
-void Cmd_malloc(char **args, tListMem *lista) {
+void malloc_fun(char **args, tListMem *lista) {
     if (*args != NULL && strcmp(*args, "-free") == 0) {
-        Cmd_memdemalloc(args + 1, lista);
+        Demalloc(args + 1, lista);
     } else {
-        Cmd_memmalloc(args, lista);
+        Malloc(args, lista);
     }
 }
 
@@ -344,7 +316,7 @@ void Recursiva(int n) {
         Recursiva(n - 1);
 }
 
-void Cmd_Recurse(char **args) {
+void Recurse(char **args) {
     if (*args != NULL) {
         int param = atoi(*args);
         Recursiva(param);
@@ -353,13 +325,10 @@ void Cmd_Recurse(char **args) {
 
 //-------------------------------------
 
-// Function to insert a memory-mapped node into the list
 void InsertMappedNode(tListMem *list, ulong address, ulong size, uint descriptor, char *fileName) {
-    // Assuming MEM_TYPE_MMAP_FLAG is the type for memory-mapped nodes
-    InsertMemBlock(list, address, size, MEM_TYPE_MMAP_FLAG, descriptor, fileName, MEM_TYPE_MMAP_FLAG);
+    InsertMemBlock(list, address, size, MEM_TYPE_MMAP_FLAG, descriptor, fileName, 0);
 }
 
-// Function to map a file to memory
 void *MapFileToMemory(char *fileName, uint flags, tListMem *list) {
     int openFlags = (flags & MAP_SHARED) ? O_RDWR : O_RDONLY;
     int fd = open(fileName, openFlags);
@@ -388,37 +357,18 @@ void *MapFileToMemory(char *fileName, uint flags, tListMem *list) {
     return address;
 }
 
-// Function to print the list of memory-mapped nodes
 void PrintMappedList(tListMem *list, ulong tipeAlloc) {
     PrintList(list, MEM_TYPE_MMAP_FLAG);
 }
 
-// Function to search for a node by address in the list
-int FindNodeByAddress(tListMem *list, ulong address) {
-    int index = 0;
-
-    while (true) {
-        if (*(int *)(*list + 0x8000) <= index) {
-            return -1; // Node not found
-        }
-        if (address == **(ulong **)(*list + (long)index * 8)) {
-            break; // Node found
-        }
-        index++;
-    }
-
-    return index;
-}
-
-// Command to handle memory mapping
-void Cmd_memmap(char **params, tListMem *memList) {
+void mmap_Aux(char **params, tListMem *memList) {
     if (*params == NULL) {
         PrintMappedList(memList, MEM_TYPE_MMAP_FLAG);
     } else {
         char *fileName = *params;
 
         if (strlen(fileName) < 1) {
-            fprintf(stderr, "Error: Invalid file name\n");
+            fprintf(stderr, "Error: Nombre no válido\n");
             return;
         }
 
@@ -443,62 +393,16 @@ void Cmd_memmap(char **params, tListMem *memList) {
             void *address = MapFileToMemory(fileName, flags, memList);
 
             if (address == NULL) {
-                fprintf(stderr, "Error: Unable to map file %s\n", fileName);
+                fprintf(stderr, "Error: No se pudo mapear el archivo %s\n", fileName);
             } else {
-                printf("File %s mapped at %p\n", fileName, address);
+                printf("Archivo %s mapeado a %p\n", fileName, address);
             }
         } else {
-            fprintf(stderr, "Error: Invalid permissions\n");
+            fprintf(stderr, "Error: Permisos no válidos\n");
         }
     }
 }
 
-// Function to get the size of a node by address
-ulong GetNodeSizeByAddress(tListMem *list, ulong address) {
-    int index = FindNodeByAddress(list, address);
-    return (index == -1) ? 0xffffffffffffffff : *(ulong *)(*list + (long)index * 8 + 8);
-}
-
-// Function to search for a mapped node by file name
-int FindMappedNode(tListMem *list, char *fileName) {
-    int index = 0;
-
-    while (true) {
-        if (*(int *)(*list + 0x8000) <= index) {
-            return -1; // Node not found
-        }
-        ulong nodeAddress = **(ulong **)(*list + (long)index * 8);
-        int allocationType = *(uint *)(nodeAddress + 0x1c);
-
-        if (((allocationType & MEM_TYPE_MMAP_FLAG) != 0) && (*(long *)(nodeAddress + 0x10) != 0)) {
-            int result = strcmp(*(char **)(nodeAddress + 0x10), fileName);
-            if (result == 0) {
-                break; // Node found
-            }
-        }
-        index++;
-    }
-
-    return index;
-}
-
-// Function to get the address of a mapped node by file name
-ulong GetMappedNodeAddress(tListMem *list, char *fileName) {
-    int index = FindMappedNode(list, fileName);
-    if (index == -1) {
-        return 0;
-    } else {
-        return **(ulong **) (*list + (long) index * 8);
-    }
-}
-
-// Function to get the descriptor of a mapped node by file name
-uint GetMappedNodeDescriptor(tListMem *list, char *fileName) {
-    int index = FindMappedNode(list, fileName);
-    return (index == -1) ? 0xffffffff : *(uint *)(**(ulong ***)(*list + (long)index * 8) + 0x18);
-}
-
-// Function to deallocate a mapped node
 void DeallocateMappedNode(char *fileName, tListMem *list) {
     tPosMem prev = NULL;
     tPosMem current = *list;
@@ -514,7 +418,7 @@ void DeallocateMappedNode(char *fileName, tListMem *list) {
             if (result == -1) {
                 int *error = __errno_location();
                 char *errorString = strerror(*error);
-                printf("Unable to unmap %s at %p: %s\n", fileName, address, errorString);
+                printf("No se pudo desmapear %s en %p: %s\n", fileName, address, errorString);
             } else {
                 close(descriptor);
                 // Remove from the list
@@ -534,8 +438,7 @@ void DeallocateMappedNode(char *fileName, tListMem *list) {
     printf("File %s not mapped\n", fileName);
 }
 
-// Command to handle memory deallocation
-void Cmd_memdemmap(char **parameters, tListMem *list) {
+void demmap(char **parameters, tListMem *list) {
     if (*parameters == NULL) {
         PrintMappedList(list, 0x119480);
     } else {
@@ -543,44 +446,24 @@ void Cmd_memdemmap(char **parameters, tListMem *list) {
     }
 }
 
-// Main command for memory mapping and deallocation
-void Cmd_mmap(char **parameters, tListMem *list) {
+void mmap_fun(char **parameters, tListMem *list) {
     int result;
 
     if (*parameters != NULL && (result = strcmp(*parameters, "-free"), result == 0)) {
-        Cmd_memdemmap(parameters + 1, list);
+        demmap(parameters + 1, list);
     } else {
-        Cmd_memmap(parameters, list);
+        mmap_Aux(parameters, list);
     }
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
 
 void PrintSharedList(tListMem *lista) {
     PrintList(lista, 2);
 }
 
-int FindNodeByKey(tListMem *lista, int key, char type) {
-    int index = 0;
-
-    tPosMem current = *lista;
-
-    while (current != NULL) {
-        if (type == '\x02' && current->type_alloc == 2 && key == (int)current->memoryInfo.otherInfo.sharedMemoryKey) {
-            return index;
-        }
-        current = current->next;
-        index++;
-    }
-
-    return -1;
-}
-
-ulong GetNodeAddressByKey(tListMem *lista, int key) {
-    int index = FindNodeByKey(lista, key, '\x02');
-    return (index == -1) ? 0 : (*lista)->direccion;
-}
-
-void DoSharedDealloc(int key, tListMem *lista) {
+void DeallocShared(int key, tListMem *lista) {
     int index = FindNodeByKey(lista, key, '\x02');
 
     if (index == -1) {
@@ -595,24 +478,23 @@ void DoSharedDealloc(int key, tListMem *lista) {
             printf("Imposible quitar de lista: %s\n", errorString);
         } else {
             shmdt(sharedAddr);
-            printf("Bloque liberado exitosamente.\n");
+            printf("Bloque liberado.\n");
         }
     }
 }
 
-void CmdMemDeShared(char **params, tListMem *lista) {
+void Deshare(char **params, tListMem *lista) {
     ulong key;
 
     if (*params == (char *)0x0) {
         PrintSharedList(lista);
     } else {
         key = strtoul(*params, (char **)0x0, 10);
-        DoSharedDealloc((int)key, lista);
+        DeallocShared((int) key, lista);
     }
 }
 
 void InsertSharedNode(tListMem *lista, ulong address, ulong size, ulong key) {
-    // The correct arguments for InsertMemBlock are address, size, allocationType, key, fileName, and line.
     InsertMemBlock(lista, address, size, MEM_TYPE_SHARED_FLAG, key, NULL, 0);
 }
 
@@ -653,11 +535,10 @@ void *GetShmMemory(int key, size_t size, tListMem *lista) {
         shmctl(shmId, 2, &localStat);
         InsertSharedNode(lista, (ulong) shmAddr, localStat.shm_segsz, key);
     }
-
     return shmAddr;
 }
 
-void CmdCreateShared(char **params, tListMem *lista) {
+void CreateShared(char **params, tListMem *lista) {
     ulong key, size;
     void *memoryAddr;
     int *errorPtr;
@@ -685,7 +566,7 @@ void CmdCreateShared(char **params, tListMem *lista) {
     }
 }
 
-void CmdDeleteKey(char **params) {
+void DeleteKey(char **params) {
     int shmId, result;
     ulong key;
 
@@ -705,10 +586,10 @@ void CmdDeleteKey(char **params) {
             return;
         }
     }
-    puts("      delkey necesita clave_valida");
+    puts("      delkey necesita clave valida");
 }
 
-void CmdMemShared(char **params, tListMem  *lista) {
+void MemShared(char **params, tListMem  *lista) {
     int shmKey;
     ulong key;
     void *memoryAddr;
@@ -732,7 +613,7 @@ void CmdMemShared(char **params, tListMem  *lista) {
     }
 }
 
-void CmdShared(char **params, tListMem *lista) {
+void Shared(char **params, tListMem *lista) {
     int result;
 
     if (*params == (char *)0x0) {
@@ -740,110 +621,26 @@ void CmdShared(char **params, tListMem *lista) {
     } else {
         result = strcmp(*params, "-free");
         if (result == 0) {
-            CmdMemDeShared(params + 1, lista);
+            Deshare(params + 1, lista);
         } else {
             result = strcmp(*params, "-create");
             if (result == 0) {
-                CmdCreateShared(params + 1, lista);
+                CreateShared(params + 1, lista);
             } else {
                 result = strcmp(*params, "-delkey");
                 if (result == 0) {
-                    CmdDeleteKey(params + 1);
+                    DeleteKey(params + 1);
                 } else {
-                    CmdMemShared(params, lista);
+                    MemShared(params, lista);
                 }
             }
         }
     }
 }
 
-//-----------------------------------------------------
 
-char *TranslateSpecialChar(char ch) {
-    static char buffer[4];  // Buffer for the translated character
 
-    if (ch == '\n') {
-        return "  \\n";
-    } else if (ch == '\t') {
-        return "  \\t";
-    } else if (ch == '\r') {
-        return "  \\r";
-    } else {
-        if (-1 < ch && isprint(ch)) {
-            snprintf(buffer, sizeof(buffer), "  %c", ch);
-            return buffer;
-        }
-        return "  _"; // Placeholder for non-printable characters
-    }
-}
-
-void DisplayLine(long address, int length) {
-    int index;
-
-    for (index = 0; index < length; index++) {
-        char *translatedChar = TranslateSpecialChar(*(char *)(address + index));
-        printf("%s", translatedChar);
-    }
-    putchar('\n');
-    for (index = 0; index < length; index++) {
-        printf(" %02x", (uint)*(u_char *)(address + index));
-    }
-    putchar('\n');
-}
-
-void DisplayMemory(long address, size_t size) {
-    size_t chunkSize;
-    size_t remainingBytes = size;
-
-    for (chunkSize = 0; chunkSize < (size >> 4); chunkSize++) {
-        DisplayLine(address, 0x10);
-        address += 0x10;
-        remainingBytes -= 0x10;
-    }
-
-    if (remainingBytes > 0) {
-        DisplayLine(address - remainingBytes, (int)remainingBytes);
-    }
-}
-
-const char *CadBon(int value) {
-    // Check for special characters
-    if (value == '\n') {
-        return "newline";
-    } else if (value == '\t') {
-        return "tab";
-    } else if (value == '\r') {
-        return "carriage return";
-    } else if (value >= 32 && value <= 126) {
-        // Printable ASCII characters
-        static char printable[3];
-        printable[0] = ' ';
-        printable[1] = (char)value;
-        printable[2] = '\0';
-        return printable;
-    } else {
-        // Non-printable or special characters
-        return "non-printable";
-    }
-}
-
-void MostrarLinea(void *address, int length) {
-    u_char *ptr = address;
-    int i;
-    printf("\n");
-
-    for (i = 0; i < length; ++i) {
-        printf(" %02x", ptr[i]);
-    }
-    putchar('\n');
-
-    for (i = 0; i < length; ++i) {
-        printf(" %s", CadBon(ptr[i]));
-    }
-    putchar('\n');
-}
-
-void MostrarMemoria(void *address, size_t size) {
+void Show_Mem(void *address, size_t size) {
     uint8_t *ptr = (uint8_t *)address;
 
     for (size_t i = 0; i < size; ++i) {
@@ -859,7 +656,7 @@ unsigned long long cadtop(char *str) {
     return result;
 }
 
-void Cmd_memdump(char **params) {
+void memdump(char **params) {
     unsigned long long count = 0x19; // Default count
     if (params[1] != NULL) {
         count = strtoull(params[1], (char **)0x0, 10);
@@ -867,10 +664,10 @@ void Cmd_memdump(char **params) {
 
     unsigned long long address = cadtop(params[0]);
     printf("Dumping %llu bytes from address %p\n", count, (void *)address);
-    MostrarMemoria((void *) address, count);
+    Show_Mem((void *) address, count);
 }
 
-//----------------------------------------------------
+
 
 ulong ConvertByte(const char *param) {
     if (param[0] == '\'' && param[2] == '\'' && param[3] == '\0') {
@@ -889,69 +686,66 @@ void LlenarMemoria (void *p, size_t cont, unsigned char byte)
         arr[i]=byte;
 }
 
-void Cmd_memfill(long *params) {
+void memfill(long *params) {
     if (params[0] == 0) {
-        printf("Missing address parameter\n");
+        printf("Faltan parametros\n");
         return;
     }
 
-    // Parse and validate address
     long address = strtol((char *)params[0], NULL, 16);
     if (address == 0 && errno == EINVAL) {
-        perror("Invalid address");
+        perror("Dirección no válida");
         return;
     }
 
-    // Parse and validate size
     ulong size = 0x80;
     if (params[1] != 0) {
         size = strtoul((char *)params[1], NULL, 10);
         if (size == 0 && errno == EINVAL) {
-            perror("Invalid size");
+            perror("Tamaño no válido");
             return;
         }
     }
 
-    // Parse and validate fill byte
     u_char fillByte = 0x41;
     if (params[2] != 0) {
         fillByte = (u_char)ConvertByte((char *)params[2]);
         if (fillByte == 0 && errno == EINVAL) {
-            perror("Invalid fill byte");
+            perror("Byte no válido");
             return;
         }
     }
 
-    printf("Filling %zu bytes of memory with byte %lu (%02lx) at address %p\n",
+    printf("Llenando %zu bytes de memoria con el byte %lu (%02lx) en la dirección %p\n",
            size, (ulong)fillByte, (ulong)fillByte, (void *)address);
 
     LlenarMemoria((void *)address, size, fillByte);
 }
 
-//----------------------------------------------------
 
-void ImprimirListaMemCompleta(tListMem *lista) {
+
+void PrintListMem(tListMem *lista) {
     PrintList(lista, 7);
 }
 
-void Do_showfuncs(void);
+void print_funcs(void);
 
-void Do_showvars(void) {
+void print_vars(void) {
     u_char local1[4];
     u_char local2[4];
     u_char local3[4];
 
     printf("Variables locales: %35p, %18p, %18p\n", local1, local2, local3);
-    printf("Variables globales: %35p, %18p, %18p\n", &h, &pi, &e);
-    printf("Variables globales no inicializadas: %18p, %18p, %18p\n", &V1, &V2, &V3);
-    printf("Variables estáticas: %34p, %18p, %18p\n", &x_5, &y_4, &z_3);
-    printf("Variables estáticas no inicializadas: %17p, %18p, %18p\n", &a_2, &b_1, &c_0);
+    printf("Variables globales: %35p, %18p, %18p\n", &gd1, &gd2, &gd3);
+    printf("Variables globales no inicializadas: %18p, %18p, %18p\n", &gnd1, &gnd2, &gnd3);
+    printf("Variables estáticas: %34p, %18p, %18p\n", &gsd1, &gsd2, &gsd3);
+    printf("Variables estáticas no inicializadas: %17p, %18p, %18p\n", &gsnd1, &gsnd2, &gsnd3);
 }
 
-void Do_pmap(void) {
+void print_pmap(void) {
     u_char local_38[44];
     int myVariable;
-    char *pmapArgs[] = {"pmap", (char *)local_38, NULL};
+    char *pmapArgs[] = {"print_pmap", (char *)local_38, NULL};
     char *procstatArgs[] = {"procstat", (char *)&myVariable, (char *)local_38, NULL};
     char *procmapArgs[] = {"procmap", (char *)local_38, NULL};
     char *vmmapArgs[] = {"vmmap", "-interleave", (char *)local_38, NULL};
@@ -959,65 +753,45 @@ void Do_pmap(void) {
     pid_t child_pid = fork();
 
     if (child_pid == -1) {
-        perror("Unable to create process");
+        perror("No se pudo crear el proceso");
     } else if (child_pid == 0) {
-        // Child process
         if (execvp(pmapArgs[0], pmapArgs) == -1 &&
             execvp(procstatArgs[0], procstatArgs) == -1 &&
             execvp(procmapArgs[0], procmapArgs) == -1 &&
             execvp(vmmapArgs[0], vmmapArgs) == -1) {
-            perror("Cannot execute commands");
+            perror("No se pudieron ejecutar los comandos");
             exit(1);
         }
     } else {
-        // Parent process
         waitpid(child_pid, NULL, 0);
     }
 }
 
-void Cmd_mem(char **param_1, tListMem *lista) {
+void mem(char **param_1, tListMem *lista) {
     if (*param_1 != NULL) {
         if (strcmp(*param_1, "-blocks") == 0) {
-            ImprimirListaMemCompleta(lista);
+            PrintListMem(lista);
         } else if (strcmp(*param_1, "-funcs") == 0) {
-            Do_showfuncs();
+            print_funcs();
         } else if (strcmp(*param_1, "-vars") == 0) {
-            Do_showvars();
+            print_vars();
         } else if (strcmp(*param_1, "-all") == 0) {
-            Do_showvars();
-            Do_showfuncs();
-            ImprimirListaMemCompleta(lista);
-        } else if (strcmp(*param_1, "-pmap") == 0) {
-            Do_pmap();
+            print_vars();
+            print_funcs();
+            PrintListMem(lista);
+        } else if (strcmp(*param_1, "-print_pmap") == 0) {
+            print_pmap();
         } else {
-            printf("Option %s not supported\n", *param_1);
+            printf("Parametros no válidos\n", *param_1);
         }
     } else {
-        // Default behavior
-        Do_showvars();
-        Do_showfuncs();
-        ImprimirListaMemCompleta(lista);
+        print_vars();
+        print_funcs();
+        PrintListMem(lista);
     }
 }
 
-//----------------------------------------------------
-void Do_MemPmap (void) { /*sin argumentos*/
-    pid_t pid;       /*hace el pmap (o equivalente) del proceso actual*/
-    char elpid[32];
-    char *argv[4]={"pmap",elpid,NULL};
 
-    sprintf (elpid,"%d", (int) getpid());
-    if ((pid=fork())==-1){
-        perror ("Imposible crear proceso");
-        return;
-    }
-    if (pid==0){ /*proceso hijo*/
-        if (execvp(argv[0],argv)==-1)
-            perror("cannot execute pmap");
-        exit(1);
-    }
-    waitpid (pid,NULL,0);
-}
 
 int es_numero(const char *str) { //Comprueba si un string es un número
     for (int i = 0; str[i] != '\0'; i++) {
@@ -1927,31 +1701,31 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             deltree(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "malloc")){
-            Cmd_malloc(trozos + 1, listamemoria);
+            malloc_fun(trozos + 1, listamemoria);
 
         } else  if (!strcmp(trozos[0], "shared")){
-            CmdShared(trozos + 1, listamemoria);
+            Shared(trozos + 1, listamemoria);
 
         } else  if (!strcmp(trozos[0], "mmap")){
-            Cmd_mmap(trozos + 1, listamemoria);
+            mmap_fun(trozos + 1, listamemoria);
 
         } else  if (!strcmp(trozos[0], "read")){
-            Cmd_read((trozos + 1));
+            read_fun((trozos + 1));
 
         } else  if (!strcmp(trozos[0], "write")){
-            Cmd_write(trozos + 1, listamemoria);
+            write_fun(trozos + 1, listamemoria);
 
         } else  if (!strcmp(trozos[0], "memdump")){
-            Cmd_memdump((trozos + 1));
+            memdump((trozos + 1));
 
         } else  if (!strcmp(trozos[0], "memfill")){
-            Cmd_memfill((long *) (trozos + 1));
+            memfill((long *) (trozos + 1));
 
         } else  if (!strcmp(trozos[0], "mem")){
-            Cmd_mem((trozos + 1), listamemoria);
+            mem((trozos + 1), listamemoria);
 
         } else  if (!strcmp(trozos[0], "recurse")){
-            Cmd_Recurse(trozos + 1);
+            Recurse(trozos + 1);
 
         } else {
             printf("Comando no reconocido\n");
@@ -1992,7 +1766,7 @@ int main() {
 }
 
 // Simplified function to print functions
-void Do_showfuncs(void) {
+void print_funcs(void) {
     printf("Program functions: %18p, %18p, %18p\nLibrary functions: %18p, %18p, %18p\n",
            main, TrocearCadena, procesar_entrada, printf, fgets, malloc);
 }

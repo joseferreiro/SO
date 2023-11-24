@@ -38,5 +38,6 @@ void PrintList(tListMem *list, uint type_alloc);
 int RemoveNodeByAddress(tListMem* list, ulong direccion);
 void ClearListMemBlock(tListMem *list);
 tPosMem FindNodeByAddressMem(tListMem *lista, ulong address);
+int FindNodeByKey(tListMem *lista, int key, char type);
 
 #endif
