@@ -1,10 +1,13 @@
 //Autor 1: José Manuel Ferreiro López   login: jose.manuel.ferreiro@udc.es
 //Autor 2: Alvaro Mendez Linares    login: alvaro.mendez.linares@udc.es
 
+//no se borra la memoria de malloc
+//MMAP YA ARREGLADO
+//COMPROVAR SHARED parece funcionar bien
+
 //FLAGS de tipo de allocation
 //revisar tamaño direcciones
 //solucionar commandN
-//desmapeado no funciona (mmap) listado tampoco (id de tipo de allocation)
 //listado de shared no funciona, borrado tampoco (id de tipo de allocation)
 //formato lista memoria e impresión (e.g. tipo de asignación) (e.g. mmap y malloc no deben acceder a los mismos bloques)
 //revisar dirección en Cmd_malloc
@@ -125,57 +128,65 @@ int FindNodeByAddress(tListMem *list, ulong address) {
 }
 
 // Function to read file contents into a buffer
-ssize_t LeerFichero (char *f, void *p, size_t cont)
-{
+ssize_t LeerFichero(char *f, void *p, size_t cont) {
     struct stat s;
-    ssize_t  n;
-    int df,aux;
+    ssize_t n;
+    int df, aux;
 
-    if (stat (f,&s)==-1 || (df=open(f,O_RDONLY))==-1)
-        return -1;
-    if (cont==-1)   /* si pasamos -1 como bytes a leer lo leemos entero*/
-        cont=s.st_size;
-    if ((n=read(df,p,cont))==-1){
-        aux=errno;
-        close(df);
-        errno=aux;
+    if (f == NULL || p == NULL) {
+        fprintf(stderr, "Invalid parameters\n");
         return -1;
     }
-    close (df);
+
+    if (stat(f, &s) == -1 || (df = open(f, O_RDONLY)) == -1) {
+        perror("Unable to open file");
+        return -1;
+    }
+
+    if (cont == -1)   /* if we pass -1 as bytes to read, read the entire file */
+        cont = s.st_size;
+
+    if ((n = read(df, p, cont)) == -1) {
+        aux = errno;
+        close(df);
+        errno = aux;
+        perror("Unable to read file");
+        return -1;
+    }
+
+    close(df);
     return n;
 }
 
 // Function to write buffer contents to a file
-ssize_t EscribirFichero (char *f, void *p, size_t cont,int overwrite)
-{
-    ssize_t  n;
-    int df,aux, flags=O_CREAT | O_EXCL | O_WRONLY;
+ssize_t EscribirFichero(char *f, void *p, size_t cont, int overwrite) {
+    ssize_t n;
+    int df, aux, flags = O_CREAT | O_EXCL | O_WRONLY;
 
     if (overwrite)
-        flags=O_CREAT | O_WRONLY | O_TRUNC;
+        flags = O_CREAT | O_WRONLY | O_TRUNC;
 
-    if ((df=open(f,flags,0777))==-1)
+    if ((df = open(f, flags, 0777)) == -1)
         return -1;
 
-    if ((n=write(df,p,cont))==-1){
-        aux=errno;
+    if ((n = write(df, p, cont)) == -1) {
+        aux = errno;
         close(df);
-        errno=aux;
+        errno = aux;
         return -1;
     }
-    close (df);
+    close(df);
     return n;
 }
 
 // Command to read file contents and write them to a memory address
-
 void Cmd_read(char *ar[]) {
     void *p;
     size_t cont = -1;  // -1 indicates reading the entire file
     ssize_t n;
 
     if (ar[0] == NULL || ar[1] == NULL) {
-        printf("Missing parameters\n");
+        fprintf(stderr, "Missing parameters\n");
         return;
     }
 
@@ -189,17 +200,14 @@ void Cmd_read(char *ar[]) {
 
     n = LeerFichero(ar[0], p, cont);
 
-    if (n == -1) {
-        perror("Unable to read file");
-    } else {
+    if (n != -1) {
         printf("Read %zd bytes from %s into %p\n", n, ar[0], p);
     }
 }
 
-// Command to read a file into a buffer and write it to another file
-void Cmd_write(char **commandParameters, tListMem *lista) {
+void Cmd_write(char **params, tListMem *lista) {
     int overwrite = 0;
-    char **parameters = commandParameters;
+    char **parameters = params;
 
     if (*parameters == NULL) {
         puts("Missing parameters");
@@ -232,27 +240,29 @@ void Cmd_write(char **commandParameters, tListMem *lista) {
         return;
     }
 
-    void *buffer = malloc(bufferSize);
-    if (buffer == NULL) {
-        perror("Unable to allocate buffer");
+    // Find the node using the provided address
+    tPosMem node = FindNodeByAddressMem(lista, (ulong)userAddress);
+    if (node == NULL) {
+        perror("Unable to find node");
         return;
     }
 
-    ssize_t bytesRead = FindNodeByAddress(lista, (ulong) dir_mem_to_read); //---------------------------
-
-    if (bytesRead == -1) {
-        perror("Unable to read file");
-    } else {
-        ssize_t bytesWritten = EscribirFichero(file, buffer, bytesRead, overwrite);
-
-        if (bytesWritten == -1) {
-            perror("Unable to write file");
-        } else {
-            printf("Written %zd bytes to %s from %p\n", bytesWritten, file, (void *)userAddress);
-        }
+    // Ensure the provided buffer size does not exceed the node's size
+    if (bufferSize > node->size) {
+        puts("Invalid buffer size");
+        return;
     }
 
-    free(buffer);
+    // Use the existing memory specified by the user as the buffer
+    void *buffer = (void *)userAddress;
+
+    ssize_t bytesWritten = EscribirFichero(file, buffer, bufferSize, overwrite);
+
+    if (bytesWritten == -1) {
+        perror("Unable to write file");
+    } else {
+        printf("Written %zd bytes to %s from %p\n", bytesWritten, file, (void *)userAddress);
+    }
 }
 
 void doMalloc(size_t tamano, tListMem *lista) {
@@ -262,7 +272,7 @@ void doMalloc(size_t tamano, tListMem *lista) {
         perror("Imposible obtener memoria con malloc");
     } else {
         printf("Asignados %lu bytes en %p\n", tamano, memoria);
-        InsertMemBlock(lista, (ulong)memoria, tamano, 0, 0, NULL, 0);
+        InsertMemBlock(lista, (ulong)memoria, tamano, MEM_TYPE_MALLOC_FLAG, 0, NULL, 0);
     }
 }
 
@@ -313,7 +323,7 @@ ulong DireccionNodoMalloc(tListMem *lista, size_t size) {
 }
 
 void doMallocDealloc(size_t size, tListMem *lista) {
-    ulong direccion = DireccionNodoMalloc(lista, size);//----------------------
+    ulong direccion = DireccionNodoMalloc(lista, size);
 
     if (direccion == 0) {
         puts("No hay bloque de ese tamaño asignado con malloc");
@@ -567,38 +577,40 @@ void PrintSharedList(tListMem *lista) {
 int FindNodeByKey(tListMem *lista, int key, char type) {
     int index = 0;
 
-    while (true) {
-        if (*(int *)(lista + 0x8000) <= index) {
-            return -1;
+    tPosMem current = *lista;
+
+    while (current != NULL) {
+        if (type == '\x02' && current->type_alloc == 2 && key == (int)current->memoryInfo.otherInfo.sharedMemoryKey) {
+            return index;
         }
-        if ((((int)type & *(uint *)(*(long *)(lista + (long)index * 8) + 0x1c)) != 0) &&
-            (key == *(int *)(*(long *)(lista + (long)index * 8) + 0x18))) {
-            break;
-        }
+        current = current->next;
         index++;
     }
 
-    return index;
+    return -1;
 }
 
 ulong GetNodeAddressByKey(tListMem *lista, int key) {
     int index = FindNodeByKey(lista, key, '\x02');
-    return (index == -1) ? 0 : **(ulong **)(lista + (long)index * 8);
+    return (index == -1) ? 0 : (*lista)->direccion;
 }
 
 void DoSharedDealloc(int key, tListMem *lista) {
-    void *sharedAddr = (void *)GetNodeAddressByKey(lista, key);
+    int index = FindNodeByKey(lista, key, '\x02');
 
-    if (sharedAddr == (void *)0x0) {
+    if (index == -1) {
         puts("No hay bloque de esa clave mapeado en el proceso");
     } else {
-        shmdt(sharedAddr);
+        void *sharedAddr = (void *)(*lista)->direccion;
         ulong status = RemoveNodeByAddress(lista, (long)sharedAddr);
 
         if ((int)status == -1) {
             int *error = __errno_location();
             char *errorString = strerror(*error);
             printf("Imposible quitar de lista: %s\n", errorString);
+        } else {
+            shmdt(sharedAddr);
+            printf("Bloque liberado exitosamente.\n");
         }
     }
 }
@@ -614,8 +626,9 @@ void CmdMemDeShared(char **params, tListMem *lista) {
     }
 }
 
-void InsertSharedNode(tListMem *lista, ulong address, ulong size, ulong key) { //----------------------------------------------------------------------
-    InsertMemBlock(lista, address, size, key, 3, "wwe",5);
+void InsertSharedNode(tListMem *lista, ulong address, ulong size, ulong key) {
+    // The correct arguments for InsertMemBlock are address, size, allocationType, key, fileName, and line.
+    InsertMemBlock(lista, address, size, MEM_TYPE_SHARED_FLAG, key, NULL, 0);
 }
 
 void *GetShmMemory(int key, size_t size, tListMem *lista) {

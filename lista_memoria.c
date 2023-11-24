@@ -1,5 +1,6 @@
 #include <time.h>
 #include <unistd.h>
+#include <sys/shm.h>
 #include "lista_memoria.h"
 
 void CreateListMemBlock(tListMem *list) {
@@ -27,6 +28,8 @@ void InsertMemBlock(tListMem *list, ulong direccion, size_t size, int type_alloc
         newNode->memoryInfo.allocationType = type_alloc;
         newNode->memoryInfo.otherInfo.mappedFile.fileName = strdup(fileName);
         newNode->memoryInfo.otherInfo.mappedFile.fileDescriptor = fileDescriptor;
+    } else if (type_alloc == MEM_TYPE_MALLOC_FLAG) {
+        newNode->memoryInfo.allocationType = type_alloc;
     }
 
     newNode->next = NULL;
@@ -105,13 +108,28 @@ int RemoveNodeByAddress(tListMem *list, ulong address) {
         return -1;
     }
 
-    free(current->memoryInfo.otherInfo.mappedFile.fileName);
+    // Check if the node is a mapped file, shared memory, or malloc before freeing memory
+    if ((current->memoryInfo.allocationType & MEM_TYPE_MMAP_FLAG) != 0) {
+        free(current->memoryInfo.otherInfo.mappedFile.fileName);
+    } else if ((current->memoryInfo.allocationType & MEM_TYPE_MALLOC_FLAG) != 0) {
+        free((void *)current->direccion);
+    } else if ((current->memoryInfo.allocationType & MEM_TYPE_SHARED_FLAG) != 0) {
+        // For shared memory, remove the shared memory segment using shmctl
+        int shmId = shmget((key_t)current->memoryInfo.otherInfo.sharedMemoryKey, 0, 0);
+        if (shmId != -1) {
+            shmctl(shmId, IPC_RMID, NULL);
+        }
+    }
+
     if (prev == NULL) {
         // Node to be removed is the first node in the list
         *list = current->next;
     } else {
         prev->next = current->next;
     }
+
+    // Set current->next to NULL to avoid accidental access to freed memory
+    current->next = NULL;
     free(current);
 
     return 0;
@@ -121,14 +139,34 @@ void ClearListMemBlock(tListMem *list) {
     if (list == NULL || *list == NULL) {
         return;
     }
+
     tPosMem current = *list;
     tPosMem next;
 
     while (current != NULL) {
-        free(current->memoryInfo.otherInfo.mappedFile.fileName);
+        if ((current->memoryInfo.allocationType & MEM_TYPE_MMAP_FLAG) != 0) {
+            free(current->memoryInfo.otherInfo.mappedFile.fileName);
+        } else if ((current->memoryInfo.allocationType & MEM_TYPE_MALLOC_FLAG) != 0) {
+            free((void *)current->direccion);
+        }
+
         next = current->next;
         free(current);
         current = next;
     }
+
     *list = NULL;
+}
+
+tPosMem FindNodeByAddressMem(tListMem *lista, ulong address) {
+    tPosMem current = *lista;
+
+    while (current != NULL) {
+        if (current->direccion == address) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    return NULL;
 }

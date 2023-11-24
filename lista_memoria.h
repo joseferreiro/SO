@@ -38,5 +38,6 @@ void InsertMemBlock(tListMem *list, ulong direccion, size_t size, int type_alloc
 void PrintList(tListMem *list, uint blockType);
 int RemoveNodeByAddress(tListMem* list, ulong address);
 void ClearListMemBlock(tListMem *list);
+tPosMem FindNodeByAddressMem(tListMem *lista, ulong address);
 
 #endif
