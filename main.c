@@ -644,8 +644,7 @@ ulong ConvertByte(const char *param) {
     }
 }
 
-void LlenarMemoria (void *p, size_t cont, unsigned char byte)
-{
+void LlenarMemoria (void *p, size_t cont, unsigned char byte) {
     unsigned char *arr=(unsigned char *) p;
     size_t i;
 
@@ -749,7 +748,7 @@ void mem(char **param_1, tListMem *lista) {
         } else if (strcmp(*param_1, "-print_pmap") == 0) {
             print_pmap();
         } else {
-            printf("Parametros no válidos\n", *param_1);
+            printf("Parametros no válidos\n");
         }
     } else {
         print_vars();
@@ -757,8 +756,6 @@ void mem(char **param_1, tListMem *lista) {
         PrintListMem(lista);
     }
 }
-
-
 
 int es_numero(const char *str) { //Comprueba si un string es un número
     for (int i = 0; str[i] != '\0'; i++) {
@@ -793,8 +790,7 @@ char LetraTF (mode_t m)
     }
 }
 
-char *ConvierteModo2 (mode_t m)
-{
+char *ConvierteModo2 (mode_t m) {
     static char permisos[12];
     strcpy (permisos,"---------- ");
 
@@ -1342,13 +1338,13 @@ void date(){
     printf("%d/%02d/%02d\n", tm.tm_mday, tm.tm_mon + 1,  tm.tm_year + 1900);
 }
 
-void time_fun(){
+void time_fun() {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
     printf("%02d:%02d:%02d\n", tm.tm_hour, tm.tm_min, tm.tm_sec);
 }
 
-void hist(char *command, tListCom *list){
+void hist(char *command, tListCom *list) {
     if (command == NULL){
         int p = 0;
         for(tPosCom i = *list; i != NULL; i = i->next){
@@ -1467,7 +1463,7 @@ void listopen(tListFic *list) {
     listar_ficheros_abiertos(list);
 }
 
-void infosys(){
+void infosys() {
     struct utsname data;
     uname(&data);
     printf("%s %s %s %s %s\n", data.sysname, data.nodename, data.release, data.version, data.machine);
@@ -1595,7 +1591,7 @@ void help(char *command){
     }
 }
 
-void imprimirPrompt(){
+void imprimirPrompt() {
     printf("->");
 }
 
@@ -1732,8 +1728,7 @@ int main() {
     return 0;
 }
 
-// Simplified function to print functions
 void print_funcs(void) {
-    printf("Program functions: %18p, %18p, %18p\nLibrary functions: %18p, %18p, %18p\n",
+    printf("Funciones de programa: %18p, %18p, %18p\nFunciones de libreria: %18p, %18p, %18p\n",
            main, TrocearCadena, procesar_entrada, printf, fgets, malloc);
 }

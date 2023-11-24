@@ -16,7 +16,7 @@ typedef struct tNodeMem {
     int type_alloc;
 
     struct {
-        int allocationType; //
+        int allocationType;
         union {
             ulong sharedMemoryKey;    // Usado para shared
             struct {

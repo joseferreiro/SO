@@ -12,7 +12,7 @@ OBJS = $(SRCS:.c=.o)
 DEPS = lista_comandos.h lista_ficheros.h lista_memoria.h
 
 # Output executable
-OUTPUT = shell
+OUTPUT = p2
 
 # Default target
 all: $(OUTPUT)

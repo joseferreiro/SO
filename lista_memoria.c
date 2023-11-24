@@ -8,8 +8,7 @@ void CreateListMemBlock(tListMem *list) {
     *list = NULL;
 }
 
-void InsertMemBlock(tListMem *list, ulong direccion, size_t size, int type_alloc,
-                    int Key, const char *fileName, int fileDescriptor) {
+void InsertMemBlock(tListMem *list, ulong direccion, size_t size, int type_alloc, int Key, const char *fileName, int fileDescriptor) {
     tPosMem newNode = malloc(sizeof(tNodeMem));
 
     if (newNode == NULL) {
@@ -62,7 +61,7 @@ void printMemoryBlockTypeHeader(uint type_alloc) {
 
 void printMemoryBlock(tNodeMem *block) {
     char *formattedDate = ctime(&block->time_string);
-    formattedDate[strlen(formattedDate) - 1] = '\0'; // Remove the newline character
+    formattedDate[strlen(formattedDate) - 1] = '\0';
 
     printf("0x%lx  %15lu %s", block->direccion, block->size, formattedDate);
 
@@ -105,17 +104,14 @@ int RemoveNodeByAddress(tListMem *list, ulong direccion) {
     }
 
     if (current == NULL) {
-        // Node with the specified address not found
         return -1;
     }
 
-    // Check if the node is a mapped file, shared memory, or malloc before freeing memory
     if ((current->memoryInfo.allocationType & MEM_TYPE_MMAP_FLAG) != 0) {
         free(current->memoryInfo.otherInfo.mappedFile.fileName);
     } else if ((current->memoryInfo.allocationType & MEM_TYPE_MALLOC_FLAG) != 0) {
         free((void *)current->direccion);
     } else if ((current->memoryInfo.allocationType & MEM_TYPE_SHARED_FLAG) != 0) {
-        // For shared memory, remove the shared memory segment using shmctl
         int shmId = shmget((key_t)current->memoryInfo.otherInfo.sharedMemoryKey, 0, 0);
         if (shmId != -1) {
             shmctl(shmId, IPC_RMID, NULL);
@@ -123,13 +119,11 @@ int RemoveNodeByAddress(tListMem *list, ulong direccion) {
     }
 
     if (prev == NULL) {
-        // Node to be removed is the first node in the list
         *list = current->next;
     } else {
         prev->next = current->next;
     }
 
-    // Set current->next to NULL to avoid accidental access to freed memory
     current->next = NULL;
     free(current);
 
@@ -149,12 +143,10 @@ void ClearListMemBlock(tListMem *list) {
             if (current->memoryInfo.otherInfo.mappedFile.fileName != NULL) {
                 free(current->memoryInfo.otherInfo.mappedFile.fileName);
             }
-            // munmap para liverar el archivo mapeado de memoria
             if (current->direccion != 0) {
                 munmap((void *)current->direccion, current->size);
             }
         } else if ((current->memoryInfo.allocationType & MEM_TYPE_MALLOC_FLAG) != 0) {
-            printf("%lu",current->direccion);
             free((void *)current->direccion);
         }
 
