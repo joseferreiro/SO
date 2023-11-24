@@ -52,17 +52,15 @@
 #define TROZOS 15  //numere de trozos que se pueden almacenar en la array trozos
 #define TAMANO 2048
 
-#define LIST_SIZE_OFFSET 0 // Replace with the actual offset value
-#define MEM_FLAGS_OFFSET 4 // Replace with the actual offset value
-#define MEM_FILE_NAME_OFFSET 8 // Replace with the actual offset value
-#define MEM_SIZE_OFFSET 12 // Replace with the actual offset value
-#define MEM_FD_OFFSET 16 // Replace with the actual offset value
-#define MEM_MMAP_FLAG 0x1 // Replace with the actual flag value
 #define MAP_SHARED 0x01  // Replace with the actual value
 #define MAP_READ 0x02  // Replace with the actual value
 #define MAP_WRITE 0x04  // Replace with the actual value
 #define MAP_EXECUTE 0x08  // Replace with the actual value
 
+int h = 32, pi = 423, e = 4376;
+int V1, V2, V3;
+static int x_5 = 342, y_4 = 423, z_3=324;
+static int a_2, b_1, c_0;
 
 /*
 void RepeatHistoric(undefined8 param_1,uint param_2)
@@ -111,22 +109,7 @@ void RepeatHistoric(undefined8 param_1,uint param_2)
 }
  */
 
-// Function to search for a node by address in the list
-int FindNodeByAddress(tListMem *list, ulong address) {
-    int index = 0;
 
-    while (true) {
-        if (*(int *)(*list + 0x8000) <= index) {
-            return -1; // Node not found
-        }
-        if (address == **(ulong **)(*list + (long)index * 8)) {
-            break; // Node found
-        }
-        index++;
-    }
-
-    return index;
-}
 
 // Function to read file contents into a buffer
 ssize_t LeerFichero(char *f, void *p, size_t cont) {
@@ -227,7 +210,6 @@ void Cmd_write(char **params, tListMem *lista) {
 
     // Parse file, address, and size
     char *file = parameters[0];
-    char *dir_mem_to_read = parameters[1];
     unsigned long userAddress;
     if (sscanf(parameters[1], "%lx", &userAddress) != 1) {
         puts("Invalid address");
@@ -275,21 +257,6 @@ void doMalloc(size_t tamano, tListMem *lista) {
         printf("Asignados %lu bytes en %p\n", tamano, memoria);
         InsertMemBlock(lista, (ulong)memoria, tamano, MEM_TYPE_MALLOC_FLAG, 0, NULL, 0);
     }
-}
-
-int BuscarNodoTam(tListMem *lista, ulong direccion, uint tipo) {
-    int local_c = 0;
-    tNodeMem *current = *lista;
-
-    while (current != NULL) {
-        if (((current->memoryInfo.allocationType & tipo) != 0) && (direccion == current->direccion)) {
-            return local_c;
-        }
-        local_c++;
-        current = current->next;
-    }
-
-    return -1;
 }
 
 ulong BuscarNodoDireccionMalloc(tListMem *lista, size_t size) {
@@ -424,6 +391,23 @@ void *MapFileToMemory(char *fileName, uint flags, tListMem *list) {
 // Function to print the list of memory-mapped nodes
 void PrintMappedList(tListMem *list, ulong tipeAlloc) {
     PrintList(list, MEM_TYPE_MMAP_FLAG);
+}
+
+// Function to search for a node by address in the list
+int FindNodeByAddress(tListMem *list, ulong address) {
+    int index = 0;
+
+    while (true) {
+        if (*(int *)(*list + 0x8000) <= index) {
+            return -1; // Node not found
+        }
+        if (address == **(ulong **)(*list + (long)index * 8)) {
+            break; // Node found
+        }
+        index++;
+    }
+
+    return index;
 }
 
 // Command to handle memory mapping
@@ -946,7 +930,75 @@ void Cmd_memfill(long *params) {
 
 //----------------------------------------------------
 
+void ImprimirListaMemCompleta(tListMem *lista) {
+    PrintList(lista, 7);
+}
 
+void Do_showfuncs(void);
+
+void Do_showvars(void) {
+    u_char local1[4];
+    u_char local2[4];
+    u_char local3[4];
+
+    printf("Variables locales: %35p, %18p, %18p\n", local1, local2, local3);
+    printf("Variables globales: %35p, %18p, %18p\n", &h, &pi, &e);
+    printf("Variables globales no inicializadas: %18p, %18p, %18p\n", &V1, &V2, &V3);
+    printf("Variables estáticas: %34p, %18p, %18p\n", &x_5, &y_4, &z_3);
+    printf("Variables estáticas no inicializadas: %17p, %18p, %18p\n", &a_2, &b_1, &c_0);
+}
+
+void Do_pmap(void) {
+    u_char local_38[44];
+    int myVariable;
+    char *pmapArgs[] = {"pmap", (char *)local_38, NULL};
+    char *procstatArgs[] = {"procstat", (char *)&myVariable, (char *)local_38, NULL};
+    char *procmapArgs[] = {"procmap", (char *)local_38, NULL};
+    char *vmmapArgs[] = {"vmmap", "-interleave", (char *)local_38, NULL};
+
+    pid_t child_pid = fork();
+
+    if (child_pid == -1) {
+        perror("Unable to create process");
+    } else if (child_pid == 0) {
+        // Child process
+        if (execvp(pmapArgs[0], pmapArgs) == -1 &&
+            execvp(procstatArgs[0], procstatArgs) == -1 &&
+            execvp(procmapArgs[0], procmapArgs) == -1 &&
+            execvp(vmmapArgs[0], vmmapArgs) == -1) {
+            perror("Cannot execute commands");
+            exit(1);
+        }
+    } else {
+        // Parent process
+        waitpid(child_pid, NULL, 0);
+    }
+}
+
+void Cmd_mem(char **param_1, tListMem *lista) {
+    if (*param_1 != NULL) {
+        if (strcmp(*param_1, "-blocks") == 0) {
+            ImprimirListaMemCompleta(lista);
+        } else if (strcmp(*param_1, "-funcs") == 0) {
+            Do_showfuncs();
+        } else if (strcmp(*param_1, "-vars") == 0) {
+            Do_showvars();
+        } else if (strcmp(*param_1, "-all") == 0) {
+            Do_showvars();
+            Do_showfuncs();
+            ImprimirListaMemCompleta(lista);
+        } else if (strcmp(*param_1, "-pmap") == 0) {
+            Do_pmap();
+        } else {
+            printf("Option %s not supported\n", *param_1);
+        }
+    } else {
+        // Default behavior
+        Do_showvars();
+        Do_showfuncs();
+        ImprimirListaMemCompleta(lista);
+    }
+}
 
 //----------------------------------------------------
 void Do_MemPmap (void) { /*sin argumentos*/
@@ -1895,6 +1947,9 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
         } else  if (!strcmp(trozos[0], "memfill")){
             Cmd_memfill((long *) (trozos + 1));
 
+        } else  if (!strcmp(trozos[0], "mem")){
+            Cmd_mem((trozos + 1), listamemoria);
+
         } else  if (!strcmp(trozos[0], "recurse")){
             Cmd_Recurse(trozos + 1);
 
@@ -1906,6 +1961,8 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
         }
     }
 }
+
+
 
 int main() {
     char command[MAXLEN];
@@ -1932,4 +1989,10 @@ int main() {
     ClearListCom(&list);
     ClearListMemBlock(&listamemoria);
     return 0;
+}
+
+// Simplified function to print functions
+void Do_showfuncs(void) {
+    printf("Program functions: %18p, %18p, %18p\nLibrary functions: %18p, %18p, %18p\n",
+           main, TrocearCadena, procesar_entrada, printf, fgets, malloc);
 }

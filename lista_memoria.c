@@ -45,19 +45,19 @@ void InsertMemBlock(tListMem *list, ulong direccion, size_t size, int type_alloc
     }
 }
 
-void printMemoryBlockTypeHeader(uint blockType) {
+void printMemoryBlockTypeHeader(uint type_alloc) {
     char *blockTypeString = "";
 
-    if (blockType == MEM_TYPE_MMAP_FLAG) {
+    if (type_alloc == MEM_TYPE_MMAP_FLAG) {
         blockTypeString = " mmap";
-    } else if (blockType == MEM_TYPE_MALLOC_FLAG) {
+    } else if (type_alloc == MEM_TYPE_MALLOC_FLAG) {
         blockTypeString = " malloc";
-    } else if (blockType == MEM_TYPE_SHARED_FLAG) {
+    } else if (type_alloc == MEM_TYPE_SHARED_FLAG) {
         blockTypeString = " shared";
     }
 
     pid_t processId = getpid();
-    printf("******List of allocated blocks%s for the process %lu\n", blockTypeString, (long)processId);
+    printf("******Lista de bloques%s asignados para el proceso %lu\n", blockTypeString, (long)processId);
 }
 
 void printMemoryBlock(tNodeMem *block) {
@@ -74,32 +74,32 @@ void printMemoryBlock(tNodeMem *block) {
     } else if (blockType == MEM_TYPE_SHARED_FLAG) {
         printf(" shared (key %lu)\n", block->memoryInfo.otherInfo.sharedMemoryKey);
     } else {
-        puts("  unknown");
+        puts("  desconocido");
     }
 }
 
-void PrintList(tListMem *memoryList, uint blockType) {
+void PrintList(tListMem *memoryList, uint type_alloc) {
     tPosMem current = *memoryList;
 
-    printMemoryBlockTypeHeader(blockType);
+    printMemoryBlockTypeHeader(type_alloc);
 
     while (current != NULL) {
-        if (current->type_alloc == blockType) {
+        if (current->type_alloc == type_alloc) {
             printMemoryBlock(current);
         }
         current = current->next;
     }
 }
 
-int RemoveNodeByAddress(tListMem *list, ulong address) {
-    if (list == NULL || *list == NULL || address == 0) {
+int RemoveNodeByAddress(tListMem *list, ulong direccion) {
+    if (list == NULL || *list == NULL || direccion == 0) {
         return -1;
     }
 
     tPosMem current = *list;
     tPosMem prev = NULL;
 
-    while (current != NULL && current->direccion != address) {
+    while (current != NULL && current->direccion != direccion) {
         prev = current;
         current = current->next;
     }
@@ -145,18 +145,16 @@ void ClearListMemBlock(tListMem *list) {
     tPosMem next;
 
     while (current != NULL) {
-        // Check if the node is a mapped file
         if ((current->memoryInfo.allocationType & MEM_TYPE_MMAP_FLAG) != 0) {
-            // Free the filename if it exists
             if (current->memoryInfo.otherInfo.mappedFile.fileName != NULL) {
                 free(current->memoryInfo.otherInfo.mappedFile.fileName);
             }
-            // Use munmap to release the mapped file memory
+            // munmap para liverar el archivo mapeado de memoria
             if (current->direccion != 0) {
                 munmap((void *)current->direccion, current->size);
             }
         } else if ((current->memoryInfo.allocationType & MEM_TYPE_MALLOC_FLAG) != 0) {
-            // Node allocated using malloc, free the memory
+            printf("%lu",current->direccion);
             free((void *)current->direccion);
         }
 
@@ -164,7 +162,6 @@ void ClearListMemBlock(tListMem *list) {
         free(current);
         current = next;
     }
-
     *list = NULL;
 }
 
