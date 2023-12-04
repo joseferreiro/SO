@@ -388,7 +388,6 @@ void DeallocateMappedNode(char *fileName, tListMem *list) {
                 printf("No se pudo desmapear %s en %p: %s\n", fileName, address, errorString);
             } else {
                 close(descriptor);
-                // Remove from the list
                 if (prev == NULL) {
                     *list = current->next;
                 } else {
@@ -756,6 +755,10 @@ void mem(char **param_1, tListMem *lista) {
         PrintListMem(lista);
     }
 }
+
+
+
+
 
 int es_numero(const char *str) { //Comprueba si un string es un número
     for (int i = 0; str[i] != '\0'; i++) {
