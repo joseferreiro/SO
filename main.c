@@ -1,27 +1,13 @@
 //Autor 1: José Manuel Ferreiro López   login: jose.manuel.ferreiro@udc.es
 //Autor 2: Alvaro Mendez Linares    login: alvaro.mendez.linares@udc.es
 
-//no se borra la memoria de malloc
-//MMAP YA ARREGLADO
-//COMPROVAR SHARED parece funcionar bien
-
-//FLAGS de tipo de allocation
-//revisar tamaño direcciones
-//solucionar commandN
-//listado de shared no funciona, borrado tampoco (id de tipo de allocation)
-//formato lista memoria e impresión (e.g. tipo de asignación) (e.g. mmap y malloc no deben acceder a los mismos bloques)
-//revisar dirección en Cmd_malloc
-//más cambios de sintaxis !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//revisar comandos read y write
-//añador el help de nuevos comandos
-//error con el free de dirección en ClearListMem (excepto malloc)
-//obtener contenido de la dirección, no del fichero (Write)
-//memdump
+//AREGLAR LEAK DE MALLOC !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//hacer que el comando se almacene en la lista antes de procesar_entrada
 
 
-//rervisar tNodeMem, structs innecesarias
-//mucho que revisar en mmap
-
+// faltan las funciones ***** y ***** &
+// Cmd_uid ya terminado
+//NombreSenal en lista_procesos.c vs código de ayuda
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +19,7 @@
 #include "lista_comandos.h"
 #include "lista_ficheros.h"
 #include "lista_memoria.h"
+#include "lista_procesos.h"
 
 #include <sys/stat.h>
 #include <pwd.h>
@@ -47,6 +34,8 @@
 #include <sys/shm.h>
 #include <stdint-gcc.h>
 
+#include <sys/resource.h>
+
 #define MAXLEN 200
 #define TROZOS 15  //numere de trozos que se pueden almacenar en la array trozos
 #define TAMANO 2048
@@ -60,6 +49,751 @@ int gnd1, gnd2, gnd3;
 static int gsd1 = 342, gsd2 = 423, gsd3=324;
 static int gsnd1, gsnd2, gsnd3;
 
+ulong main3arg;
+ulong *addrmain3arg;
+extern char **environ;
+
+//-----------------------------
+
+char *GetUsernameByUid(__uid_t uid)
+{
+    struct passwd *userEntry = getpwuid(uid);
+    if (userEntry == NULL) {
+        return " ??????";
+    } else {
+        return userEntry->pw_name;
+    }
+}
+
+__uid_t GetUidByUsername(char *username)
+{
+    struct passwd *userEntry = getpwnam(username);
+    if (userEntry == NULL) {
+        return (__uid_t)-1;
+    } else {
+        return userEntry->pw_uid;
+    }
+}
+
+void CommandGetUid()
+{
+    __uid_t realUid = getuid();
+    __uid_t effectiveUid = geteuid();
+
+    printf("Real credential: %lu, (%s)\n", (ulong)realUid, GetUsernameByUid(realUid));
+    printf("Effective credential: %lu, (%s)\n", (ulong)effectiveUid, GetUsernameByUid(effectiveUid));
+}
+
+void CommandUid(char **commandArgs)
+{
+    char **commandParams;
+    int comparisonResult;
+    int *errorPointer;
+    char *errorMessage;
+    __uid_t targetUid;
+
+    if (*commandArgs == NULL || (comparisonResult = strcmp(*commandArgs, "-get"), comparisonResult == 0)
+        || *commandArgs[1] == NULL || (comparisonResult = strcmp(commandArgs[1], "-l"), comparisonResult == 0 && *commandArgs[2] == NULL))
+    {
+        CommandGetUid(commandArgs);
+    } else {
+        comparisonResult = strcmp(*commandArgs, "-get");
+        if (comparisonResult == 0) {
+            puts("uid [-get|-set] [-l] [id]");
+        } else {
+            commandParams = commandArgs + 1;
+            comparisonResult = strcmp(*commandParams, "-l");
+            if (comparisonResult == 0) {
+                targetUid = GetUidByUsername(commandArgs[2]);
+                if (targetUid == (__uid_t)-1) {
+                    printf("Nonexistent user: %s\n", commandArgs[2]);
+                    return;
+                }
+            } else {
+                targetUid = atoi(*commandParams);
+                if (targetUid < 0) {
+                    targetUid = (__uid_t)-1;
+                }
+                if (targetUid == (__uid_t)-1) {
+                    printf("Invalid credential value: %s\n", *commandParams);
+                    return;
+                }
+            }
+            comparisonResult = seteuid(targetUid);
+            if (comparisonResult == -1) {
+                errorPointer = __errno_location();
+                errorMessage = strerror(*errorPointer);
+                printf("Unable to change credential: %s\n", errorMessage);
+            }
+        }
+    }
+}
+
+
+//-------------------------------------
+
+void ShowEnvironmentVariables(long environmentAddress, char *variableName)
+{
+    uint index = 0;
+    while (*(long *)(environmentAddress + (long)(int)index * 8) != 0) {
+        printf("0x%lx -> %s[%u] = (0x%lx) %lu\n",
+               (long)(int)index * 8 + environmentAddress, variableName, index,
+               *(ulong *)(environmentAddress + (long)(int)index * 8),
+               *(ulong *)(environmentAddress + (long)(int)index * 8));
+        index = index + 1;
+    }
+}
+
+void CommandShowEnvironment(char **commandArgs)
+{
+    int comparisonResult;
+
+    if (*commandArgs == NULL) {
+        ShowEnvironmentVariables((long)main3arg, "main arg3");
+    }
+    else {
+        comparisonResult = strcmp(*commandArgs, "-environ");
+        if (comparisonResult == 0) {
+            ShowEnvironmentVariables((long)environ, "environ");
+        }
+        else {
+            comparisonResult = strcmp(*commandArgs, "-addr");
+            if (comparisonResult == 0) {
+                printf("environ:   %p (stored at %p)\nmain arg3: %p (stored at %p)\n",
+                       environ, &environ, main3arg, addrmain3arg);
+            }
+            else {
+                printf("Usage: %s [-environ|-addr]\n", commandArgs[-1]);
+            }
+        }
+    }
+}
+
+int SearchVariable(char *variableName, long address)
+{
+    int comparisonResult;
+    size_t length;
+    int *errorPointer;
+    ushort buffer[262];
+    int index;
+
+    index = 0;
+    strcpy((char *)buffer, variableName);
+    length = strlen((char *)buffer);
+    *(ushort *)((long)buffer + length) = 0x3d;
+    while (1) {
+        if (*(long *)(address + (long)index * 8) == 0) {
+            errorPointer = __errno_location();
+            *errorPointer = 2;
+            return -1;
+        }
+        length = strlen((char *)buffer);
+        comparisonResult = strncmp(*(char **)(address + (long)index * 8),
+                                   (char *)buffer, length);
+        if (comparisonResult == 0) {
+            break;
+        }
+        index = index + 1;
+    }
+    return index;
+}
+
+void CommandShowVariable(char **commandArgs)
+{
+    int comparisonResult;
+    char *environmentVariable;
+
+    if (*commandArgs == (char *)0x0) {
+        CommandShowEnvironment(commandArgs);
+    }
+    else {
+        comparisonResult = SearchVariable(*commandArgs, (long) main3arg);
+        if (comparisonResult != -1) {
+            printf("With arg3 main %s (%p) @%p\n",
+                   *(ulong *)(main3arg + (long)comparisonResult * 8),
+                   *(ulong *)(main3arg + (long)comparisonResult * 8),
+                   main3arg + (long)comparisonResult * 8);
+        }
+        comparisonResult = SearchVariable(*commandArgs, (long) environ);
+        if (comparisonResult != -1) {
+            printf("  With environ %s (%p) @%p\n",
+                   *(ulong *)(environ + (long)comparisonResult * 8),
+                   *(ulong *)(environ + (long)comparisonResult * 8),
+                   environ + (long)comparisonResult * 8);
+        }
+        environmentVariable = getenv(*commandArgs);
+        if (environmentVariable != (char *)0x0) {
+            printf("   With getenv %s (%p)\n", environmentVariable, environmentVariable);
+        }
+    }
+}
+
+
+//----------------------------------
+
+int FindVariableIndex(char *variable, long arrayAddress)
+{
+    int index = 0;
+    ushort terminator = 0x3d; // ASCII code for '='
+
+    char buffer[262];
+    strcpy(buffer, variable);
+
+    size_t variableLength = strlen(buffer);
+    *(ushort *)(buffer + variableLength) = terminator;
+
+    while (*(long *)(arrayAddress + (long)index * 8) != 0) {
+        size_t bufferLength = strlen(buffer);
+        int comparisonResult = strncmp(*(char **)(arrayAddress + (long)index * 8), buffer, bufferLength);
+        if (comparisonResult == 0) {
+            break;
+        }
+        index = index + 1;
+    }
+
+    return (int)index;
+}
+
+int ChangeVariable(char *variable, char *value, long arrayAddress)
+{
+    int index = FindVariableIndex(variable, arrayAddress);
+    if (index == -1) {
+        errno = 2; // No such file or directory
+        return -1;
+    }
+
+    size_t variableLength = strlen(variable);
+    size_t valueLength = strlen(value);
+
+    char *destination = (char *)malloc(valueLength + variableLength + 2);
+    if (destination == NULL) {
+        errno = 12; // Out of memory
+        return -1;
+    }
+
+    strcpy(destination, variable);
+    variableLength = strlen(destination);
+    *(ushort *)(destination + variableLength) = 0x3d; // '='
+    strcat(destination, value);
+
+    *(char **)((long)index * 8 + arrayAddress) = destination;
+
+    return index;
+}
+
+int ChangeVariablePutenv(char *variable, char *value)
+{
+    size_t variableLength = strlen(variable);
+    size_t valueLength = strlen(value);
+
+    char *destination = (char *)malloc(valueLength + variableLength + 2);
+    if (destination == NULL) {
+        return -1;
+    }
+
+    strcpy(destination, variable);
+    variableLength = strlen(destination);
+    *(ushort *)(destination + variableLength) = 0x3d; // '='
+    strcat(destination, value);
+
+    int result = putenv(destination);
+
+    return result;
+}
+
+void CommandChangeVariable(char **commandParams)
+{
+    int comparisonResult;
+    int *errorPointer;
+    char *errorMessage;
+    int result;
+
+    if (*commandParams == NULL || commandParams[1] == NULL || commandParams[2] == NULL) {
+        printf("Usage: %s [-a|-e|-p] variable value\n", commandParams[-1]);
+    } else {
+        comparisonResult = strcmp(*commandParams, "-a");
+        if (comparisonResult == 0) {
+            result = ChangeVariable(commandParams[1], commandParams[2], (long)main3arg);
+        } else {
+            comparisonResult = strcmp(*commandParams, "-e");
+            if (comparisonResult == 0) {
+                result = ChangeVariable(commandParams[1], commandParams[2], (long)environ);
+            } else {
+                comparisonResult = strcmp(*commandParams, "-p");
+                if (comparisonResult != 0) {
+                    printf("Usage: %s [-a|-e|-p] variable value\n", commandParams[-1]);
+                    return;
+                }
+                result = ChangeVariablePutenv(commandParams[1], commandParams[2]);
+            }
+        }
+        if (result == -1) {
+            errorPointer = __errno_location();
+            errorMessage = strerror(*errorPointer);
+            printf("Unable to change variable: %s\n", errorMessage);
+        }
+    }
+}
+
+
+//----------------------------------------------
+
+int ReplaceVariableValue(unsigned long variableIndex, char *newValue, char *variable, long arrayAddress)
+{
+    int index = FindVariableIndex(variable, arrayAddress);
+    int *errorPointer;
+    char *errorMessage;
+    size_t variableLength;
+    size_t newLength;
+    char *destination;
+
+    if (index == -1) {
+        index = FindVariableIndex((char *)variableIndex, arrayAddress);
+        if (index == -1) {
+            errorPointer = __errno_location();
+            *errorPointer = 2; // No such file or directory
+            return -1;
+        } else {
+            variableLength = strlen(variable);
+            newLength = strlen(newValue);
+            destination = (char *)malloc(newLength + variableLength + 2);
+            if (destination == NULL) {
+                errorPointer = __errno_location();
+                *errorPointer = 12; // Out of memory
+                return -1;
+            } else {
+                strcpy(destination, variable);
+                variableLength = strlen(destination);
+                *(ushort *)(destination + variableLength) = 0x3d; // '='
+                strcat(destination, newValue);
+                *(char **)((long)index * 8 + arrayAddress) = destination;
+            }
+        }
+    } else {
+        errorPointer = __errno_location();
+        *errorPointer = 17; // File exists
+        return -1;
+    }
+    return index;
+}
+
+void CommandSubstituteVariable(char **commandParams)
+{
+    int comparisonResult;
+    int *errorPointer;
+    char *errorMessage;
+    int result;
+    int localResult;
+
+    if (*commandParams == NULL || commandParams[1] == NULL || commandParams[2] == NULL || commandParams[3] == NULL) {
+        printf("Usage: %s [-a|-e] variable value\n", commandParams[-1]);
+    } else {
+        comparisonResult = strcmp(*commandParams, "-a");
+        if (comparisonResult == 0) {
+            result = ReplaceVariableValue(0, commandParams[2], commandParams[1], (long)main3arg);
+        } else {
+            comparisonResult = strcmp(*commandParams, "-e");
+            if (comparisonResult != 0) {
+                printf("Usage: %s [-a|-e] var1 var2 value\n", commandParams[-1]);
+                return;
+            }
+            localResult = ReplaceVariableValue((unsigned long)commandParams[1], commandParams[2], commandParams[3], (long)environ);
+        }
+        if (result == -1 || localResult == -1) {
+            errorPointer = __errno_location();
+            errorMessage = strerror(*errorPointer);
+            printf("Unable to substitute variable %s with %s: %s\n", commandParams[1], commandParams[2], errorMessage);
+        }
+    }
+}
+
+
+//----------------------------------------------
+//Cmd_fork
+void ExecuteInBackground(BackgroundProcessList *processList)
+{
+    pid_t childProcessID;
+    uint processID;
+
+    childProcessID = fork();
+
+    if (childProcessID == 0) {
+        VaciarListaProcesos(processList);
+        processID = getpid();
+        printf("Executing process %d\n", (unsigned int)processID);
+    } else if (childProcessID != -1) {
+        waitpid(childProcessID, (int *)0x0, 0);
+    }
+}
+
+//----------------------------------------------
+
+__uid_t GetUserIDByUsername(char *username)
+{
+    __uid_t userID;
+    struct passwd *userEntry;
+
+    userEntry = getpwnam(username);
+
+    if (userEntry == NULL) {
+        userID = 0xffffffff;
+    } else {
+        userID = userEntry->pw_uid;
+    }
+
+    return userID;
+}
+
+ulong ChangeCredentials(ulong param)
+{
+    __uid_t userUID;
+    int result;
+    int *errorLocation;
+    ulong returnValue;
+
+    userUID = GetUserIDByUsername((char *)param);
+
+    if (userUID == 0xffffffff) {
+        errorLocation = __errno_location();
+        *errorLocation = 2;
+        returnValue = 0xffffffff;
+    } else {
+        result = seteuid(userUID);
+
+        if (result == -1) {
+            returnValue = 0xffffffff;
+        } else {
+            returnValue = 0;
+        }
+    }
+
+    return returnValue;
+}
+
+ulong CheckPriority(long param, int *priority)
+{
+    int result;
+    int localPriority;
+
+    localPriority = 0;
+
+    while (1) {
+        if (*(long *)(param + (long)localPriority * 8) == 0) {
+            return 0;
+        }
+
+        if (**(char **)(param + (long)localPriority * 8) == '@') {
+            break;
+        }
+
+        localPriority = localPriority + 1;
+    }
+
+    result = atoi((char *)(*(long *)(param + (long)localPriority * 8) + 1));
+    *priority = result;
+
+    *(ulong *)(param + (long)localPriority * 8) = 0;
+
+    return 1;
+}
+
+int CheckEnvironment(char **params, ulong *environmentValues)
+{
+    int result;
+    int localCount;
+
+    if ((*params == NULL) || (result = strcmp(*params, "NULLENV"), result != 0)) {
+        localCount = 0;
+
+        while ((params[localCount] != NULL &&
+                (result = FindVariableIndex(params[localCount], (long)environ), result != -1))) {
+            environmentValues[localCount] = *(ulong *)(environ + (long)result * 8);
+            localCount = localCount + 1;
+        }
+
+        environmentValues[localCount] = 0;
+    } else {
+        *environmentValues = 0;
+        localCount = 1;
+    }
+
+    return localCount;
+}
+
+char *GetExecutablePath(char *param)
+{
+    int result;
+    struct stat fileStatus;
+    char pathBuffer[1032];
+    char tempPath[1032];  // Local variable to store temporary path
+    char *resultPath;
+
+    if ((((param != NULL) && (resultPath = getenv("PATH"), resultPath != NULL)) &&
+         (*param != '/')) &&
+        ((result = strncmp(param, "./", 2), result != 0 && (result = strncmp(param, "../", 3), result != 0)))) {
+        strncpy(pathBuffer, resultPath, 0x400);
+        resultPath = strtok(pathBuffer, ":");
+
+        while (resultPath != NULL) {
+            sprintf(tempPath, "%s/%s", resultPath, param);
+            result = lstat(tempPath, &fileStatus);
+
+            if (result != -1) {
+                return strdup(tempPath);  // Return a duplicate to avoid potential issues
+            }
+
+            resultPath = strtok(NULL, ":");
+        }
+    }
+
+    return strdup(param);  // Return a duplicate to avoid potential issues
+}
+
+
+int ExecuteCommand(char **params, long credentials, int *priority)
+{
+    int result;
+    id_t processID;
+    int *errorLocation;
+    char *errorMessage;
+    long localPriority;
+    int *localPriorityPtr;
+    char *environmentValues[129];
+    int localCount;
+
+    if (*params == NULL) {
+        errorLocation = __errno_location();
+        *errorLocation = 0xe;
+        result = -1;
+    } else {
+
+        localPriorityPtr = priority;
+        if ((priority == NULL) && (result = CheckPriority((long)params, &localPriority), result != 0)) {
+            localPriorityPtr = (int *) &localPriority;
+        }
+
+        if (localPriorityPtr != NULL) {
+            result = *localPriorityPtr;
+            processID = getpid();
+            result = setpriority(PRIO_PROCESS, processID, result);
+
+            if ((result == -1) && (errorLocation = __errno_location(), *errorLocation != 0)) {
+                errorLocation = __errno_location();
+                errorMessage = strerror(*errorLocation);
+                printf("Unable to change priority: %s\n", errorMessage);
+                return -1;
+            }
+        }
+
+        localCount = CheckEnvironment(params, (ulong *) environmentValues);
+
+        if (localCount == 0) {
+            result = execvp(*params, params);
+        } else {
+            localPriority = (long)localCount;
+            errorMessage = GetExecutablePath(params[localCount]);
+            result = execve(errorMessage, params + localPriority, environmentValues);
+        }
+    }
+    return result;
+}
+//Cmd_exec
+void ExecuteCommandWrapper(ulong param)
+{
+    int result;
+
+    result = ExecuteCommand((char **)param, 0, 0);
+
+    if (result == -1) {
+        perror("Unable to execute");
+    }
+}
+
+//----------------------------------------------
+//Cmd_jobs
+void ShowJobs(BackgroundProcessList *processList)
+{
+    ActualizarListaProcesos(processList);
+    ImprimirListaProcesos(processList, 0xf);
+    return;
+}
+//Cmd_deljobs
+void DeleteJobs(long options, BackgroundProcessList *processList)
+{
+    int comparisonResult;
+    uint signalOption;
+    int localIndex;
+
+    signalOption = 0;
+    localIndex = 0;
+
+    while (*(long *)(options + (long)localIndex * 8) != 0) {
+        comparisonResult = strcmp(*(char **)(options + (long)localIndex * 8), "-term");
+
+        if (comparisonResult == 0) {
+            signalOption = 8;
+        } else {
+            comparisonResult = strcmp(*(char **)(options + (long)localIndex * 8), "-sig");
+
+            if (comparisonResult == 0) {
+                signalOption = 4;
+            } else {
+                comparisonResult = strcmp(*(char **)(options + (long)localIndex * 8), "-all");
+
+                if (comparisonResult == 0) {
+                    signalOption = 0xc;
+                } else {
+                    comparisonResult = strcmp(*(char **)(options + (long)localIndex * 8), "-clear");
+
+                    if (comparisonResult != 0) {
+                        break;
+                    }
+
+                    VaciarListaProcesos(processList);
+                }
+            }
+        }
+
+        localIndex = localIndex + 1;
+    }
+
+    BorrarProcesosEstado(processList, signalOption);
+    ActualizarListaProcesos(processList);
+    ImprimirListaProcesos(processList, 0xf);
+    return;
+}
+
+char * SignalName(int signalNumber)
+{
+    int localIndex;
+
+    localIndex = 0;
+
+    while (1) {
+        if (*(long *)(sigstrnum + (long)localIndex * 0x10) == 0) {
+            return "SIGUNKNOWN";
+        }
+
+        if (signalNumber == *(int *)(sigstrnum + (long)localIndex * 0x10 + 8)) {
+            break;
+        }
+
+        localIndex = localIndex + 1;
+    }
+
+    return *(char **)(sigstrnum + (long)localIndex * 0x10);
+}
+
+int FindProcessByPid(long processList, int pid)
+{
+    int *errorLocation;
+    int localIndex;
+
+    localIndex = 0;
+
+    while (1) {
+        if (*(int *)(processList + 0x8000) <= localIndex) {
+            errorLocation = __errno_location();
+            *errorLocation = 3;
+            return -1;
+        }
+
+        if (pid == *(int *)(processList + (long)localIndex * 0x20)) {
+            break;
+        }
+
+        localIndex = localIndex + 1;
+    }
+
+    return localIndex;
+}
+
+uint ProcessState(long processEntry)
+{
+    return *(uint *)(processEntry + 8);
+}
+
+ulong ProcessStateByPid(long processList, uint pid)
+{
+    int index;
+    ulong result;
+
+    index = FindProcessByPid(processList, pid);
+
+    if (index == -1) {
+        result = 0xffffffff;
+    } else {
+        result = ProcessState(processList + (long)index * 0x20);
+    }
+
+    return result;
+}
+//Cmd_job
+void JobCommand(char **options, BackgroundProcessList *processList)
+{
+    int comparisonResult;
+    uint signalOption;
+    ulong pid;
+    char **localOptions;
+    uint localFlags;
+    int localForeground;
+    uint localIndex;
+
+    localIndex = 0;
+    localForeground = 0;
+    localOptions = options;
+
+    if ((*options != NULL) && (comparisonResult = strcmp(*options, "-fg"), comparisonResult == 0)) {
+        localForeground = 1;
+        localOptions = options + 1;
+    }
+
+    if (*localOptions != NULL) {
+        pid = atoi(*localOptions);
+    }
+
+    if ((pid == 0) || (localFlags = FindProcessByPid((long) processList, pid), localFlags == -1)) {
+        ActualizarListaProcesos(processList);
+        ImprimirListaProcesos(processList, 0xf);
+        return;
+    }
+
+    if (localForeground == 0) {
+        MostrarProcesoPid(processList, pid);
+        return;
+    }
+
+    signalOption = ProcessStateByPid((long) processList, pid);
+
+    if ((signalOption & 0xc) != 0) {
+        printf("Process %d pid already finished\n", (ulong)pid);
+        return;
+    }
+
+    signalOption = waitpid(pid, (int *)&localFlags, 0);
+
+    if (pid != signalOption) {
+        return;
+    }
+
+    if ((localFlags & 0x7f) == 0) {
+        printf("Process %d terminated normally. Returned value %d\n", (ulong)pid,
+               (ulong)((int)localFlags >> 8 & 0xff));
+    }
+
+    if ('\0' < (char)(((u_char)localFlags & 0x7f) + 1) >> 1) {
+        ulong signalName = (ulong)SignalName(localFlags & 0x7f);
+        printf("Process %d terminated by signal %s\n", (ulong)pid, signalName);
+    }
+
+    BorrarProcesoPid(processList, pid);
+}
+
+//----------------------------------------------
+
+//AÑADIR ***** Y *****&
+
+//----------------------------------------------
 
 ssize_t LeerFichero(char *f, void *p, size_t cont) {
     struct stat s;
@@ -1367,9 +2101,9 @@ void hist(char *command, tListCom *list) {
     }
 }
 
-void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, int *exit, int storeCommand);
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, BackgroundProcessList *LP, int *exit, int storeCommand);
 
-void commandN(char *command, tListCom *list, tListFic *listfic, tListMem *listamemoria, int *exit) {
+void commandN(char *command, tListCom *list, tListFic *listfic, tListMem *listamemoria, BackgroundProcessList *LP, int *exit) {
     int p = 0;
     tPosCom i;
 
@@ -1394,7 +2128,7 @@ void commandN(char *command, tListCom *list, tListFic *listfic, tListMem *listam
     char *commandCopy = strdup(i->command);
     if (commandCopy != NULL) {
         int storeCommand = 0;
-        procesar_entrada(commandCopy, list, listfic, listamemoria, exit, storeCommand);
+        procesar_entrada(commandCopy, list, listfic, listamemoria, LP, exit, storeCommand);
         free(commandCopy);
     } else {
         perror("No se pudo ejecutar el comando solicitado");
@@ -1602,7 +2336,7 @@ void leerEntrada(char *command){
     fgets(command, MAXLEN, stdin);
 }
 
-void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, int *exit, int storeCommand) {
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, BackgroundProcessList *LP, int *exit, int storeCommand) {
     char *trozos[TROZOS];
 
     if(storeCommand)
@@ -1628,7 +2362,7 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             hist(trozos[1], listcom);
 
         } else if (!strcmp(trozos[0], "command")) {
-            commandN(trozos[1], listcom, listafic, listamemoria, exit);
+            commandN(trozos[1], listcom, listafic, listamemoria, LP, exit);
 
         } else if (!strcmp(trozos[0], "open")) {
             Cmd_open(trozos, *listafic);
@@ -1693,6 +2427,36 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
         } else  if (!strcmp(trozos[0], "recurse")){
             Recurse(trozos + 1);
 
+        } else  if (!strcmp(trozos[0], "uid")){
+            CommandUid(trozos + 1);
+
+        }  else  if (!strcmp(trozos[0], "showenv")){
+            CommandShowEnvironment(trozos + 1);
+
+        } else  if (!strcmp(trozos[0], "showvar")){
+            CommandShowVariable(trozos + 1);
+
+        } else  if (!strcmp(trozos[0], "changevar")){
+            CommandChangeVariable(trozos + 1);
+
+        } else  if (!strcmp(trozos[0], "subsvar")){
+            CommandSubstituteVariable(trozos + 1);
+
+        } else  if (!strcmp(trozos[0], "fork")){
+            ExecuteInBackground(LP);
+
+        } else  if (!strcmp(trozos[0], "exec")){
+            ExecuteCommandWrapper((ulong) (trozos + 1));
+
+        } else  if (!strcmp(trozos[0], "jobs")){
+            ShowJobs(LP);
+
+        } else  if (!strcmp(trozos[0], "deljobs")){
+            DeleteJobs((long) (trozos + 1), LP);
+
+        } else  if (!strcmp(trozos[0], "job")){
+            JobCommand(trozos + 1, LP);
+
         } else {
             printf("Comando no reconocido\n");
         }
@@ -1704,7 +2468,7 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
 
 
 
-int main() {
+int main(int argc, char const *argv[]) {
     char command[MAXLEN];
     int exit = 0;
     int storeCommand = 1;
@@ -1712,9 +2476,15 @@ int main() {
     tListCom list;
     tListFic listaficheros;
     tListMem listamemoria;
+    BackgroundProcessList LP;
     CreateListCom(&list);
     CreateListFic(&listaficheros);
     CreateListMemBlock(&listamemoria);
+    CreateProcList(&LP);
+    ulong var = (ulong) argv[2];
+
+    main3arg = var;
+    addrmain3arg = &var;
 
     AddFic(&listaficheros, 0, O_RDWR, "entrada estandar");
     AddFic(&listaficheros, 1, O_RDWR, "salida estandar");
@@ -1723,7 +2493,7 @@ int main() {
     while (exit == 0){
         imprimirPrompt();
         leerEntrada(command);
-        procesar_entrada(command, &list, &listaficheros, &listamemoria, &exit, storeCommand);
+        procesar_entrada(command, &list, &listaficheros, &listamemoria, &LP, &exit, storeCommand);
     }
     ClearListFic(&listaficheros);
     ClearListCom(&list);

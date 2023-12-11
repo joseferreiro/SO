@@ -9,4 +9,7 @@ add_executable(untitled main.c
         lista_ficheros.h
         lista_ficheros.c
         lista_memoria.h
-        lista_memoria.c)
+        lista_memoria.c
+        lista_procesos.h
+        lista_procesos.c
+)
