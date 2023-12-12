@@ -20,43 +20,33 @@ typedef enum {
     PROCESS_ACTIVE
 } ProcessStatus;
 
-
-// Structure to represent a background process
 typedef struct {
-    pid_t pid;              // Process ID
-    time_t launch_time;     // Date and time of launching
-    ProcessStatus status;             // Process status (FINISHED, STOPPED, SIGNALED, ACTIVE)
-    int return_value;       // Return value or signal when relevant
-    char command_line[256]; // Command line used to launch the process
-    int priority;           // Priority of the process
+    pid_t pid;
+    pid_t parent_pid;  // Added parent process ID
+    time_t launch_time;
+    ProcessStatus status;
+    int return_value;
+    char command_line[256];
 } BackgroundProcess;
 
-// Structure to represent the list of background processes
 typedef struct {
-    BackgroundProcess* processes; // Array of background processes
-    int size;                     // Current number of processes in the list
-    int capacity;                 // Capacity of the array (allocated size)
+    BackgroundProcess *processes;
+    int size;
+    int capacity;
 } BackgroundProcessList;
 
-
-void CreateProcList(BackgroundProcessList *list);
-// Function to clear the list of processes
-void VaciarListaProcesos(BackgroundProcessList* processList);
-
-// Function to update the status of all processes in the list
-void ActualizarListaProcesos(BackgroundProcessList* processList);
-
-// Function to print information about processes based on their state
-void ImprimirListaProcesos(BackgroundProcessList* processList, int state);
-
-// Function to delete processes based on their state
-void BorrarProcesosEstado(BackgroundProcessList* processList, int state);
-
-// Function to print information about a process based on its PID
-void MostrarProcesoPid(BackgroundProcessList* processList, pid_t pid);
-
-// Function to delete a process based on its PID
-unsigned int BorrarProcesoPid(BackgroundProcessList* processList, pid_t pid);
+void initProcessList(BackgroundProcessList *list);
+void cleanupProcessList(BackgroundProcessList *list);
+void addBackgroundProcess(BackgroundProcessList *list, pid_t pid, const char *commandLine);
+int findProcessIndexByPid(BackgroundProcessList *list, pid_t pid);
+void removeProcessByIndex(BackgroundProcessList *list, int index);
+void UpdateProcessStatus(pid_t pid, BackgroundProcessList* processList);
+void printProcessInfo(BackgroundProcess *process);
+void listBackgroundProcesses(BackgroundProcessList *list);
+void deleteFinishedProcesses(BackgroundProcessList *list);
+void deleteSignaledProcesses(BackgroundProcessList *list);
+void showProcessInfoForeground(BackgroundProcessList *list, pid_t pid);
+void UpdateProcessListStatus(BackgroundProcessList* processList);
 
 #endif // PROCESS_LIST_H
 

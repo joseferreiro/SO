@@ -3,247 +3,172 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-
-
-int ValorSenal(char * sen)  /*devuelve el numero de senial a partir del nombre*/
-{
-    int i;
-    for (i=0; sigstrnum[i].nombre!=NULL; i++)
-        if (!strcmp(sen, sigstrnum[i].nombre))
-            return sigstrnum[i].senal;
-    return -1;
-}
-
-void CreateProcList(BackgroundProcessList *list) {
+void initProcessList(BackgroundProcessList *list) {
     list->processes = NULL;
     list->size = 0;
     list->capacity = 0;
 }
 
-ulong borrarProceso(long param_1, int param_2) {
-    ulong *puVar1;
-    ulong *puVar2;
-    int *piVar3;
-    ulong uVar4;
-    int local_c;
-
-    if (param_2 < *(int *)(param_1 + 0x8000)) {
-        free(*(void **)(param_1 + (long)param_2 * 0x20 + 0x18));
-        for (local_c = param_2; local_c < *(int *)(param_1 + 0x8000); local_c = local_c + 1) {
-            puVar1 = (ulong *)(param_1 + (long)local_c * 0x20);
-            puVar2 = (ulong *)(param_1 + (long)(local_c + 1) * 0x20);
-            uVar4 = puVar2[1];
-            *puVar1 = *puVar2;
-            puVar1[1] = uVar4;
-            uVar4 = puVar2[3];
-            puVar1[2] = puVar2[2];
-            puVar1[3] = uVar4;
-        }
-        *(int *)(param_1 + 0x8000) = *(int *)(param_1 + 0x8000) + -1;
-        uVar4 = 0;
-    } else {
-        piVar3 = __errno_location();
-        *piVar3 = 0x16;
-        uVar4 = 0xffffffff;
+void cleanupProcessList(BackgroundProcessList *list) {
+    if (list->processes != NULL) {
+        free(list->processes);
     }
-    return uVar4;
 }
 
-// Function to delete processes based on their state
-void BorrarProcesosEstado(BackgroundProcessList* processList, int state) {
-    uint uVar1;
-    uint local_10;
-    int local_c;
+void addBackgroundProcess(BackgroundProcessList *list, pid_t pid, const char *commandLine) {
+    if (list->size >= list->capacity) {
+        list->capacity = (list->capacity == 0) ? 1 : list->capacity * 2;
+        BackgroundProcess *newProcesses = realloc(list->processes, list->capacity * sizeof(BackgroundProcess));
 
-    local_10 = 0;
-    local_c = 0;
-    while (local_c < processList->size) {
-        if ((processList->processes[local_c].status & state) == 0) {
-            local_c = local_c + 1;
+        if (newProcesses == NULL) {
+            perror("Error reallocating memory");
+            exit(EXIT_FAILURE);
+        }
+
+        // Update the processes pointer only if realloc is successful
+        list->processes = newProcesses;
+    }
+
+    int index = list->size;
+    list->processes[index].pid = pid;
+    list->processes[index].parent_pid = getpid(); // Set parent_pid to the current process ID
+    list->processes[index].status = PROCESS_ACTIVE;
+    list->processes[index].return_value = 0;
+    list->processes[index].launch_time = time(NULL);  // Set launch_time to current time
+
+    // Use strncpy to copy the commandLine, but ensure null-termination
+    strncpy(list->processes[index].command_line, commandLine, sizeof(list->processes[index].command_line) - 1);
+    list->processes[index].command_line[sizeof(list->processes[index].command_line) - 1] = '\0';
+
+    list->size++;
+}
+
+int findProcessIndexByPid(BackgroundProcessList *list, pid_t pid) {
+    for (int i = 0; i < list->size; i++) {
+        if (list->processes[i].pid == pid) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void removeProcessByIndex(BackgroundProcessList *list, int index) {
+    if (index < 0 || index >= list->size) {
+        return;  // Invalid index
+    }
+
+    // Shift elements to fill the gap
+    for (int i = index; i < list->size - 1; i++) {
+        list->processes[i] = list->processes[i + 1];
+    }
+
+    list->size--;
+
+    // After shifting, ensure that the command_line of the last element is set to NULL
+    list->processes[list->size].command_line[0] = '\0';
+}
+
+// Function to update the status of a single process
+void UpdateProcessStatus(pid_t pid, BackgroundProcessList* processList) {
+    int status;
+    pid_t waitedPid = waitpid(pid, &status, WNOHANG);
+
+    if (waitedPid == -1) {
+        perror("Error while waiting for the process");
+        return;
+    }
+
+    int index = findProcessIndexByPid(processList, pid);
+    if (index != -1) {
+        if (waitedPid == 0) {
+            // Process is still running
+            processList->processes[index].status = PROCESS_ACTIVE;
         } else {
-            uVar1 = BorrarProcesoPid(processList, processList->processes[local_c].pid);
-            local_10 = local_10 | uVar1;
-            local_c = 0;
+            // Process has finished
+            if (WIFEXITED(status)) {
+                processList->processes[index].status = PROCESS_FINISHED;
+                processList->processes[index].return_value = WEXITSTATUS(status);
+            } else if (WIFSIGNALED(status)) {
+                processList->processes[index].status = PROCESS_SIGNALED;
+                processList->processes[index].return_value = WTERMSIG(status);
+            }
         }
     }
 }
 
-// Function to clear the list of processes
-void VaciarListaProcesos(BackgroundProcessList* processList) {
-    BorrarProcesosEstado(processList, PROCESS_ACTIVE);
+// Function to update status of all processes in the list
+void UpdateProcessListStatus(BackgroundProcessList* processList) {
+    for (int i = 0; i < processList->size; i++) {
+        UpdateProcessStatus(processList->processes[i].pid, processList);
+    }
 }
 
-void actualizarProceso(__pid_t *param_1) {
-    __pid_t Var1;
-    uint local_c;
 
-    Var1 = waitpid(*param_1, (int *)&local_c, 0xb);
-    if (Var1 == *param_1) {
-        if ((local_c & 0x7f) == 0) {
-            param_1[2] = 8;
-            param_1[3] = (int)local_c >> 8 & 0xff;
-        } else if ((char)(((u_char)local_c & 0x7f) + 1) >> 1 < '\x01') {
-            if ((local_c & 0xff) == 0x7f) {
-                param_1[2] = 2;
-                param_1[3] = (int)local_c >> 8 & 0xff;
-            } else if (local_c == 0xffff) {
-                param_1[2] = 1;
-                param_1[3] = 0;
-            }
+void printProcessInfo(BackgroundProcess *process) {
+    // Check if process is NULL (added for safety)
+    if (process == NULL) {
+        fprintf(stderr, "Error: NULL process passed to printProcessInfo\n");
+        return;
+    }
+
+    printf("%5d %-10s p=%-5d %s", process->pid, getpwuid(getuid())->pw_name, process->return_value,
+           process->status == PROCESS_ACTIVE ? "ACTIVO" :
+           (process->status == PROCESS_FINISHED ? "TERMINADO" :
+            (process->status == PROCESS_SIGNALED ? "SIGNALED" : "STOPPED")));
+
+    // Check if launch_time is a valid time
+    if (process->launch_time > 0) {
+        struct tm *tm_info;
+        char buffer[26];
+
+        tm_info = localtime(&process->launch_time);
+
+        // Check if tm_info is not NULL (added for safety)
+        if (tm_info != NULL) {
+            strftime(buffer, 26, " %Y/%m/%d %H:%M:%S", tm_info);
+            printf("%s", buffer);
         } else {
-            param_1[2] = 4;
-            param_1[3] = local_c & 0x7f;
+            fprintf(stderr, "Error: Unable to get local time information\n");
         }
-    }
-}
-
-// Function to update the status of all processes in the list
-void ActualizarListaProcesos(BackgroundProcessList* processList) {
-    BorrarProcesosEstado(processList, PROCESS_FINISHED | PROCESS_STOPPED | PROCESS_SIGNALED);
-
-    for (int local_c = 0; local_c < processList->size; local_c = local_c + 1) {
-        actualizarProceso((__pid_t *)(processList->processes + local_c));
-    }
-}
-
-char* valorEstado(uint param_1) {
-    static char result[4];
-    sprintf(result, "%03d", (int)param_1);
-    return result;
-}
-
-char* NombreSenal(int param_1) {
-    int local_c = 0;
-    while (1) {
-        if (*(long *)(sigstrnum + (long)local_c * 0x10) == 0) {
-            return "SIGUNKNOWN";
-        }
-        if (param_1 == *(int *)(sigstrnum + (long)local_c * 0x10 + 8)) break;
-        local_c = local_c + 1;
-    }
-    return *(char **)(sigstrnum + (long)local_c * 0x10);
-}
-
-char* nombreEstado(int param_1) {
-    if (param_1 == 8) {
-        return "TERMINADO";
-    }
-    if (param_1 < 9) {
-        if (param_1 == 4) {
-            return "SENALADO";
-        }
-        if (param_1 < 5) {
-            if (param_1 == 1) {
-                return "ACTIVO";
-            }
-            if (param_1 == 2) {
-                return "PARADO";
-            }
-        }
-    }
-    return "???????";
-}
-
-char* fecha(time_t param_1) {
-    static char result[20];
-    time_t local_20[2];
-    struct tm *local_10;
-    local_20[0] = param_1;
-    local_10 = localtime(local_20);
-    sprintf(result, "%4d/%02d/%02d %02d:%02d:%d", (int)(local_10->tm_year + 0x76c),
-            (int)(uint)local_10->tm_mon, (int)(uint)local_10->tm_mday,
-            (int)(uint)local_10->tm_hour, (int)(uint)local_10->tm_min, (int)(uint)local_10->tm_sec
-    );
-    return result;
-}
-
-char* nombreUsuario(__uid_t param_1) {
-    static char result[15];
-    struct passwd *ppVar1;
-    ppVar1 = getpwuid(param_1);
-    if (ppVar1 == (struct passwd *)0x0) {
-        sprintf(result, "uid %07d", (int)param_1);
     } else {
-        sprintf(result, "%11s", ppVar1->pw_name);
+        fprintf(stderr, "Error: Invalid launch_time in process\n");
     }
-    return result;
+
+    printf(" (%03d) %s\n", process->return_value, process->command_line);
 }
 
-void imprimirProceso(id_t *param_1) {
-    uint priority;
-    ulong statusValue;
-    char *signalOrState;
-    char *processName;
 
-    if (*(long *)(param_1 + 6) == 0) {
-        processName = "Unknown Process";  // Replace with an appropriate default name
-    } else {
-        processName = *(char **)(param_1 + 6);
+void listBackgroundProcesses(BackgroundProcessList *list) {
+    printf("Background Processes:\n");
+    for (int i = 0; i < list->size; i++) {
+        printf("Process #%d:\n", i + 1);
+        printProcessInfo(&(list->processes[i]));
     }
-
-    if ((param_1[2] & 4) == 0) {
-        statusValue = (ulong)valorEstado(param_1[3]);
-    } else {
-        statusValue = (ulong)NombreSenal(param_1[3]);
-    }
-
-    priority = getpriority(PRIO_PROCESS, *param_1);
-    signalOrState = (param_1[2] & 4) == 0 ? nombreEstado(param_1[2]) : NombreSenal(param_1[3]);
-
-    printf("%6d %s Priority=%d Launch Time=%s Status=%s (%s) Process Name=%s\n",
-           (int)*param_1, nombreUsuario(param_1[1]), (int)priority,
-           fecha(*(ulong *)(param_1 + 4)), signalOrState, (char *)statusValue, processName);
 }
 
-// Function to print information about processes based on their state
-void ImprimirListaProcesos(BackgroundProcessList* processList, int state) {
-    for (int local_c = 0; local_c < processList->size; local_c = local_c + 1) {
-        if ((processList->processes[local_c].status & state) != 0) {
-            imprimirProceso((id_t *)&(processList->processes[local_c]));
+void deleteFinishedProcesses(BackgroundProcessList* list) {
+    for (int i = list->size - 1; i >= 0; i--) {
+        if (list->processes[i].status == PROCESS_FINISHED) {
+            removeProcessByIndex(list, i);
         }
     }
 }
 
-int BuscarProcesoPid(long param_1, int param_2) {
-    int *piVar1;
-    int local_c;
-    local_c = 0;
-    while( 1 ) {
-        if (*(int *)(param_1 + 0x8000) <= local_c) {
-            piVar1 = __errno_location();
-            *piVar1 = 3;
-            return -1;
+void deleteSignaledProcesses(BackgroundProcessList* list) {
+    for (int i = list->size - 1; i >= 0; i--) {
+        if (list->processes[i].status == PROCESS_SIGNALED) {
+            removeProcessByIndex(list, i);
         }
-        if (param_2 == *(int *)(param_1 + (long)local_c * 0x20)) break;
-        local_c = local_c + 1;
-    }
-    return local_c;
-}
-
-// Function to print information about a process based on its PID
-void MostrarProcesoPid(BackgroundProcessList* processList, pid_t pid) {
-    int iVar1;
-    ulong uVar2;
-    iVar1 = BuscarProcesoPid((long)processList, (int)pid);
-    if (iVar1 == -1) {
-        uVar2 = 0xffffffff;
-    } else {
-        actualizarProceso((__pid_t *)(processList->processes + (long)iVar1));
-        imprimirProceso((id_t *)(processList->processes + (long)iVar1));
-        uVar2 = 0;
     }
 }
 
-// Function to delete a process based on its PID
-unsigned int BorrarProcesoPid(BackgroundProcessList* processList, pid_t pid) {
-    int iVar1;
-    ulong uVar2;
-    iVar1 = BuscarProcesoPid((long)processList, (int)pid);
-    if (iVar1 == -1) {
-        uVar2 = 0xffffffff;
+void showProcessInfoForeground(BackgroundProcessList *list, pid_t pid) {
+    int index = findProcessIndexByPid(list, pid);
+    if (index != -1) {
+        printProcessInfo(&(list->processes[index]));
+        // Move the process to the foreground (simulate waiting for the process to finish)
+        UpdateProcessStatus(pid,list);
     } else {
-        uVar2 = borrarProceso((long)processList, iVar1);
+        printf("Process with PID %d not found.\n", pid);
     }
-    return 0;
 }

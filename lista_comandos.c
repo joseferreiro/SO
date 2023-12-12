@@ -11,11 +11,15 @@ void InsertCommand(tListCom *list, char *item) {
         return;
     }
 
+    // Ensure newNode->command is initialized to an empty string
     newNode->command[0] = '\0';
 
-    for (int i = 0; (item != NULL) && (i < MAXLENC); i++) {
-        strcpy(newNode->command, item);
-    }
+    // Copy the content of item to newNode->command, up to MAXLENC - 1 characters
+    strncpy(newNode->command, item, MAXLENC - 1);
+
+    // Ensure newNode->command is null-terminated
+    newNode->command[MAXLENC - 1] = '\0';
+
     newNode->next = NULL;
 
     if (*list == NULL) {
