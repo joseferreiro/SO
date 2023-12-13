@@ -14,4 +14,6 @@ add_executable(untitled main.c
         lista_procesos.c
         comandos_P3.h
         comandos_P3.c
+        comandos_P0.h
+        comandos_P0.c
 )
