@@ -301,39 +301,33 @@ int ChangeVariable(char *variable, char *value, long arrayAddress)
     return index;
 }
 
-
-
-
-
-
 int ChangeVariablePutenv(char *variable, char *value) {
-    if (variable == NULL) {
+    if (variable == NULL || value == NULL) {
+        perror("Invalid argument");
         return -1;
     }
 
-    size_t variableLength = strlen(variable);
-    size_t valueLength = strlen(value);
-
-    // Calculate required buffer size, including '=' and null terminator
-    size_t bufferSize = variableLength + valueLength + 2;
-
-    char *destination = (char *)malloc(bufferSize);
-    if (destination == NULL) {
+    // Create a new string with the format "variable=value"
+    char *newVariable = malloc(strlen(variable) + strlen(value) + 2);
+    if (newVariable == NULL) {
         perror("Error allocating memory");
         return -1;
     }
 
-    // Use strncpy to prevent buffer overflow
-    strncpy(destination, variable, variableLength);
-    destination[variableLength] = '='; // Add '='
-    strncpy(destination + variableLength + 1, value, valueLength);
-    destination[bufferSize - 1] = '\0'; // Null terminator
+    // Set the variable in the environment using putenv
+    strcpy(newVariable, variable);
+    strcat(newVariable, "=");
+    strcat(newVariable, value);
 
-    int result = putenv(destination);
-
-    return result;
+    // Set the variable in the environment using putenv
+    if (putenv(newVariable) != 0) {
+        perror("Error setting environment variable");
+        free(newVariable);
+        return -1;
+    }
+    free(newVariable);
+    return 0;
 }
-
 
 void CommandChangeVariable(char **commandParams)
 {

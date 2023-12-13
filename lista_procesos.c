@@ -138,10 +138,8 @@ void printProcessInfo(BackgroundProcess *process) {
 }
 
 
-void listBackgroundProcesses(BackgroundProcessList *list) {
-    printf("Background Processes:\n");
+void listBackgroundProcesses(BackgroundProcessList *list) {;
     for (int i = 0; i < list->size; i++) {
-        printf("Process #%d:\n", i + 1);
         printProcessInfo(&(list->processes[i]));
     }
 }
