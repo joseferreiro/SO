@@ -103,7 +103,6 @@ void UpdateProcessListStatus(BackgroundProcessList* processList) {
     }
 }
 
-
 void printProcessInfo(BackgroundProcess *process) {
     // Check if process is NULL (added for safety)
     if (process == NULL) {
@@ -136,7 +135,6 @@ void printProcessInfo(BackgroundProcess *process) {
 
     printf(" (%03d) %s\n", process->return_value, process->command_line);
 }
-
 
 void listBackgroundProcesses(BackgroundProcessList *list) {;
     for (int i = 0; i < list->size; i++) {
