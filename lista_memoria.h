@@ -35,9 +35,9 @@ typedef tPosMem tListMem;
 void CreateListMemBlock(tListMem *list);
 void InsertMemBlock(tListMem *list, ulong direccion, size_t size, int type_alloc, int Key, const char* fileName, int fileDescriptor);
 void PrintList(tListMem *list, uint type_alloc);
-int RemoveNodeByAddress(tListMem* list, ulong direccion);
+int RemoveNodeByAddress(tListMem* list, ulong address);
 void ClearListMemBlock(tListMem *list);
 tPosMem FindNodeByAddressMem(tListMem *lista, ulong address);
-int FindNodeByKey(tListMem *lista, int key, char type);
+int FindNodeByKey(tListMem *lista, int key, int type);
 
 #endif

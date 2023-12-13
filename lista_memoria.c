@@ -90,15 +90,15 @@ void PrintList(tListMem *memoryList, uint type_alloc) {
     }
 }
 
-int RemoveNodeByAddress(tListMem *list, ulong direccion) {
-    if (list == NULL || *list == NULL || direccion == 0) {
+int RemoveNodeByAddress(tListMem *list, ulong address) {
+    if (list == NULL || *list == NULL || address == 0) {
         return -1;
     }
 
     tPosMem current = *list;
     tPosMem prev = NULL;
 
-    while (current != NULL && current->direccion != direccion) {
+    while (current != NULL && current->direccion != address) {
         prev = current;
         current = current->next;
     }
@@ -107,11 +107,11 @@ int RemoveNodeByAddress(tListMem *list, ulong direccion) {
         return -1;
     }
 
-    if ((current->memoryInfo.allocationType & MEM_TYPE_MMAP_FLAG) != 0) {
+    if (current->memoryInfo.allocationType == MEM_TYPE_MMAP_FLAG) {
         free(current->memoryInfo.otherInfo.mappedFile.fileName);
-    } else if ((current->memoryInfo.allocationType & MEM_TYPE_MALLOC_FLAG) != 0) {
+    } else if (current->memoryInfo.allocationType == MEM_TYPE_MALLOC_FLAG) {
         free((void *)current->direccion);
-    } else if ((current->memoryInfo.allocationType & MEM_TYPE_SHARED_FLAG) != 0) {
+    } else if (current->memoryInfo.allocationType == MEM_TYPE_SHARED_FLAG) {
         int shmId = shmget((key_t)current->memoryInfo.otherInfo.sharedMemoryKey, 0, 0);
         if (shmId != -1) {
             shmctl(shmId, IPC_RMID, NULL);
@@ -139,14 +139,14 @@ void ClearListMemBlock(tListMem *list) {
     tPosMem next;
 
     while (current != NULL) {
-        if ((current->memoryInfo.allocationType & MEM_TYPE_MMAP_FLAG) != 0) {
+        if (current->memoryInfo.allocationType == MEM_TYPE_MMAP_FLAG) {
             if (current->memoryInfo.otherInfo.mappedFile.fileName != NULL) {
                 free(current->memoryInfo.otherInfo.mappedFile.fileName);
             }
             if (current->direccion != 0) {
                 munmap((void *)current->direccion, current->size);
             }
-        } else if ((current->memoryInfo.allocationType & MEM_TYPE_MALLOC_FLAG) != 0) {
+        } else if (current->memoryInfo.allocationType == MEM_TYPE_SHARED_FLAG) {
             free((void *)current->direccion);
         }
 
@@ -170,7 +170,7 @@ tPosMem FindNodeByAddressMem(tListMem *lista, ulong address) {
     return NULL;
 }
 
-int FindNodeByKey(tListMem *lista, int key, char type) {
+int FindNodeByKey(tListMem *lista, int key, int type) {
     int index = 0;
 
     tPosMem current = *lista;

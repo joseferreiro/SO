@@ -16,4 +16,8 @@ add_executable(untitled main.c
         comandos_P3.c
         comandos_P0.h
         comandos_P0.c
+        comandos_P1.h
+        comandos_P1.c
+        comandos_P2.h
+        comandos_P2.c
 )
