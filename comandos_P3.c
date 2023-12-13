@@ -8,96 +8,16 @@
 #include <errno.h>
 #include <sys/wait.h>
 
-struct SEN{
-    char *nombre;
-    int senal;
-};
-
-/*las siguientes funciones nos permiten obtener el nombre de una senal a partir
-del número y viceversa */
-static struct SEN sigstrnum[]={
-        {"HUP", SIGHUP},
-        {"INT", SIGINT},
-        {"QUIT", SIGQUIT},
-        {"ILL", SIGILL},
-        {"TRAP", SIGTRAP},
-        {"ABRT", SIGABRT},
-        {"IOT", SIGIOT},
-        {"BUS", SIGBUS},
-        {"FPE", SIGFPE},
-        {"KILL", SIGKILL},
-        {"USR1", SIGUSR1},
-        {"SEGV", SIGSEGV},
-        {"USR2", SIGUSR2},
-        {"PIPE", SIGPIPE},
-        {"ALRM", SIGALRM},
-        {"TERM", SIGTERM},
-        {"CHLD", SIGCHLD},
-        {"CONT", SIGCONT},
-        {"STOP", SIGSTOP},
-        {"TSTP", SIGTSTP},
-        {"TTIN", SIGTTIN},
-        {"TTOU", SIGTTOU},
-        {"URG", SIGURG},
-        {"XCPU", SIGXCPU},
-        {"XFSZ", SIGXFSZ},
-        {"VTALRM", SIGVTALRM},
-        {"PROF", SIGPROF},
-        {"WINCH", SIGWINCH},
-        {"IO", SIGIO},
-        {"SYS", SIGSYS},
-/*senales que no hay en todas partes*/
-#ifdef SIGPOLL
-        {"POLL", SIGPOLL},
-#endif
-#ifdef SIGPWR
-        {"PWR", SIGPWR},
-#endif
-#ifdef SIGEMT
-        {"EMT", SIGEMT},
-#endif
-#ifdef SIGINFO
-        {"INFO", SIGINFO},
-#endif
-#ifdef SIGSTKFLT
-        {"STKFLT", SIGSTKFLT},
-#endif
-#ifdef SIGCLD
-        {"CLD", SIGCLD},
-#endif
-#ifdef SIGLOST
-        {"LOST", SIGLOST},
-#endif
-#ifdef SIGCANCEL
-        {"CANCEL", SIGCANCEL},
-#endif
-#ifdef SIGTHAW
-        {"THAW", SIGTHAW},
-#endif
-#ifdef SIGFREEZE
-        {"FREEZE", SIGFREEZE},
-#endif
-#ifdef SIGLWP
-        {"LWP", SIGLWP},
-#endif
-#ifdef SIGWAITING
-        {"WAITING", SIGWAITING},
-#endif
-        {NULL,-1},
-};    /*fin array sigstrnum */
-
-char *GetUsernameByUid(__uid_t uid)
-{
+char *GetUsernameByUid(__uid_t uid){
     struct passwd *userEntry = getpwuid(uid);
     if (userEntry == NULL) {
-        return " ??????";
+        return "";
     } else {
         return userEntry->pw_name;
     }
 }
 
-__uid_t GetUidByUsername(char *username)
-{
+__uid_t GetUidByUsername(char *username){
     struct passwd *userEntry = getpwnam(username);
     if (userEntry == NULL) {
         return (__uid_t)-1;
@@ -106,13 +26,12 @@ __uid_t GetUidByUsername(char *username)
     }
 }
 
-void CommandGetUid()
-{
+void CommandGetUid(){
     __uid_t realUid = getuid();
     __uid_t effectiveUid = geteuid();
 
-    printf("Real credential: %lu, (%s)\n", (ulong)realUid, GetUsernameByUid(realUid));
-    printf("Effective credential: %lu, (%s)\n", (ulong)effectiveUid, GetUsernameByUid(effectiveUid));
+    printf("Credencial real: %lu, (%s)\n", (ulong)realUid, GetUsernameByUid(realUid));
+    printf("Credencial efectiva: %lu, (%s)\n", (ulong)effectiveUid, GetUsernameByUid(effectiveUid));
 }
 
 void CommandUid(char **commandArgs)
@@ -161,7 +80,7 @@ void CommandUid(char **commandArgs)
     }
 }
 
-//-------------------------------------
+
 
 void ShowEnvironmentVariables(long environmentAddress, char *variableName)
 {
@@ -190,11 +109,11 @@ void CommandShowEnvironment(char **commandArgs)
         else {
             comparisonResult = strcmp(*commandArgs, "-addr");
             if (comparisonResult == 0) {
-                printf("environ:   %p (stored at %p)\nmain arg3: %p (stored at %p)\n",
+                printf("environ:   %p (almacenado en %p)\nmain arg3: %p (almacenado en %p)\n",
                        environ, &environ, (char *)main3arg, addrmain3arg);
             }
             else {
-                printf("Usage: %s [-environ|-addr]\n", commandArgs[-1]);
+                printf("Uso: showenv [-environ|-addr]\n");
             }
         }
     }
@@ -228,68 +147,60 @@ void CommandShowVariable(char **commandArgs)
     else {
         comparisonResult = SearchVariable(*commandArgs, (char **) main3arg);
         if (comparisonResult != -1) {
-            printf("With arg3 main %s (%p) @%p\n",
+            printf("Con arg3 main %s (%p) @%p\n",
                    (char *)*(ulong *)(main3arg + (long)comparisonResult * 8),
                    (char *)*(ulong *)(main3arg + (long)comparisonResult * 8),
                    (char *)main3arg + (long)comparisonResult * 8);
         }
         comparisonResult = SearchVariable(*commandArgs, environ);
         if (comparisonResult != -1) {
-            printf("With environ %s (%p) @%p\n",
+            printf("Con environ %s (%p) @%p\n",
                    environ[comparisonResult],
                    environ[comparisonResult],
                    &environ[comparisonResult]);
         }
         environmentVariable = getenv(*commandArgs);
         if (environmentVariable != (char *)0x0) {
-            printf("With getenv %s (%p)\n", environmentVariable, environmentVariable);
+            printf("Con getenv %s (%p)\n", environmentVariable, environmentVariable);
         }
     }
 }
 
-//----------------------------------
+
 
 int FindVariableIndex(const char *targetVariable, long arrayAddress) {
     if (targetVariable == NULL) {
-        errno = EINVAL; // Invalid argument
+        errno = EINVAL;
         return -1;
     }
 
     int index = 0;
     size_t targetLength;
-    char buffer[BUFSIZ + 1];  // Increase buffer size by 1 for null terminator
+    char buffer[BUFSIZ + 1];
 
-    // Copy the target variable to a local buffer
     targetLength = strlen(targetVariable);
     if (targetLength >= BUFSIZ) {
-        // Handle buffer overflow
-        errno = EINVAL; // Invalid argument
+        errno = EINVAL;
         return -1;
     }
 
     strncpy(buffer, targetVariable, BUFSIZ);
-    buffer[targetLength] = '\0';  // Ensure null termination
+    buffer[targetLength] = '\0';
 
-    // Append the terminator character '=' to the buffer
     targetLength = strlen(buffer);
     buffer[targetLength] = '=';
 
     while (*(char **)(arrayAddress + (long)index * sizeof(char *)) != NULL) {
-        // Compare the target variable with the current element in the array
         targetLength = strlen(buffer);
         int comparisonResult = strncmp(*(char **)(arrayAddress + (long)index * sizeof(char *)), buffer, targetLength);
 
-        // If the comparison is successful, break out of the loop
         if (comparisonResult == 0) {
             return index;
         }
-
-        // Move to the next element in the array
         index++;
     }
 
-    // Set errno to indicate that the variable was not found
-    errno = ENOENT; // No such file or directory
+    errno = ENOENT;
     return -1;
 }
 
@@ -297,34 +208,30 @@ int FindVariableIndex(const char *targetVariable, long arrayAddress) {
 int ChangeVariable(char *variable, char *value, long arrayAddress)
 {
     if (variable == NULL || value == NULL) {
-        errno = EINVAL; // Invalid argument
+        errno = EINVAL;
         return -1;
     }
 
     int index = FindVariableIndex(variable, arrayAddress);
     if (index == -1) {
-        errno = ENOENT; // No such file or directory
+        errno = ENOENT;
         return -1;
     }
 
-    // Create a new string with the format "variable=value"
     char *newVariable = (char *)malloc(strlen(variable) + strlen(value) + 2);
     if (newVariable == NULL) {
-        errno = ENOMEM; // Out of memory
+        errno = ENOMEM;
         return -1;
     }
 
     sprintf(newVariable, "%s=%s", variable, value);
 
-    // Modify the environment directly
     if (setenv(variable, value, 1) != 0) {
         free(newVariable);
         return -1;
     }
 
-    // Free the allocated memory, as it's no longer needed
     free(newVariable);
-
     return index;
 }
 
@@ -334,19 +241,16 @@ int ChangeVariablePutenv(char *variable, char *value) {
         return -1;
     }
 
-    // Create a new string with the format "variable=value"
     char *newVariable = malloc(strlen(variable) + strlen(value) + 2);
     if (newVariable == NULL) {
         perror("Error allocating memory");
         return -1;
     }
 
-    // Set the variable in the environment using putenv
     strcpy(newVariable, variable);
     strcat(newVariable, "=");
     strcat(newVariable, value);
 
-    // Set the variable in the environment using putenv
     if (putenv(newVariable) != 0) {
         perror("Error setting environment variable");
         free(newVariable);
@@ -390,7 +294,7 @@ void CommandChangeVariable(char **commandParams)
     }
 }
 
-//----------------------------------------------
+
 
 int ReplaceVariableValue(char *variableIndex, const char *newValue, char *variable, long arrayAddress) {
     int index = FindVariableIndex(variable, arrayAddress);
@@ -403,7 +307,7 @@ int ReplaceVariableValue(char *variableIndex, const char *newValue, char *variab
         index = FindVariableIndex((char *)variableIndex, arrayAddress);
         if (index == -1) {
             errorPointer = __errno_location();
-            *errorPointer = ENOENT; // No such file or directory
+            *errorPointer = ENOENT;
             return -1;
         } else {
             variableLength = strlen(variable);
@@ -411,19 +315,19 @@ int ReplaceVariableValue(char *variableIndex, const char *newValue, char *variab
             destination = (char *)malloc(newLength + variableLength + 2);
             if (destination == NULL) {
                 errorPointer = __errno_location();
-                *errorPointer = ENOMEM; // Out of memory
+                *errorPointer = ENOMEM;
                 return -1;
             } else {
                 strcpy(destination, variable);
                 variableLength = strlen(destination);
-                destination[variableLength] = '='; // '='
+                destination[variableLength] = '=';
                 strcpy(destination + variableLength + 1, newValue);
                 ((char **)(arrayAddress))[index] = destination;
             }
         }
     } else {
         errorPointer = __errno_location();
-        *errorPointer = EEXIST; // File exists
+        *errorPointer = EEXIST;
         return -1;
     }
     return index;
@@ -457,8 +361,8 @@ void CommandSubstituteVariable(char **commandParams) {
     }
 }
 
-//----------------------------------------------
-//Cmd_fork
+
+
 void ExecuteInBackground(BackgroundProcessList *processList)
 {
     pid_t childProcessID;
@@ -471,14 +375,14 @@ void ExecuteInBackground(BackgroundProcessList *processList)
         processID = getpid();
         printf("Executing process %d\n", (unsigned int)processID);
     } else if (childProcessID != -1) {
-        waitpid(childProcessID, (int *)0x0, 0);
+        waitpid(childProcessID, 0, 0);
     }
 }
 
-//----------------------------------------------
 
-//ExecuteCommand que no termina la shell (terminar)
-int ExecuteCommand(char **params, long credentials, int *priority)
+
+//ExecuteCommand que no termina la shell
+int ExecuteCommand(char **params)
 {
     pid_t childPID;
     int status;
@@ -497,29 +401,17 @@ int ExecuteCommand(char **params, long credentials, int *priority)
     }
 
     if (childPID == 0) {
-        // Child process
         execvp(*params, params);
-
-        // If execvp fails, print an error message and exit the child process
-        perror("Unable to execute");
+        perror("No se pudo ejecutar el proceso");
         exit(EXIT_FAILURE);
     } else {
-        // Parent process
         waitpid(childPID, &status, 0);
-
-        // Optionally, you can check the exit status of the child process
-        /*
-        if (WIFEXITED(status)) {
-            int exitStatus = WEXITSTATUS(status);
-        }
-         */
-
         return status;
     }
 }
 
 //ExecuteCommand que termina la shell (como la de referencia)
-/* int ExecuteCommand(char **params, long credentials, int *priority)
+/* int ExecuteCommand(char **params)
 {
     int result;
     id_t processID;
@@ -538,36 +430,23 @@ int ExecuteCommand(char **params, long credentials, int *priority)
     return result;
 } */
 
-//Cmd_exec
-void ExecuteCommandWrapper(ulong param)
+
+void cmdExec(ulong param)
 {
-    int result = ExecuteCommand((char **)param, 0, 0);
+    int result = ExecuteCommand((char **)param);
 
     if (result == -1) {
-        // Handle the error if needed
-        perror("Failed to execute command");
+        perror("No se pudo ejecutar el proceso");
     }
 }
 
 //----------------------------------------------
 
-// Utility function to get the name of a signal based on its number
-const char* SignalName(int signalNumber) {
-    for (int i = 0; sigstrnum[i].nombre != NULL; i++) {
-        if (signalNumber == sigstrnum[i].senal) {
-            return sigstrnum[i].nombre;
-        }
-    }
-    return "UNKNOWN SIGNAL";
-}
-
-// Function to display background jobs
 void ShowJobs(BackgroundProcessList* processList) {
     UpdateProcessListStatus(processList);
     listBackgroundProcesses(processList);
 }
 
-// Function to delete background jobs based on options
 void DeleteJobs(char** options, BackgroundProcessList* processList) {
     for (int i = 0; options[i] != NULL; i++) {
         if (strcmp(options[i], "-term") == 0) {
@@ -586,21 +465,17 @@ void DeleteJobs(char** options, BackgroundProcessList* processList) {
     ShowJobs(processList);
 }
 
-// Function to display information about a background job
 void JobCommand(char** options, BackgroundProcessList* processList) {
     int foreground = 0;
     char** localOptions = options;
 
-    // Check if the command specifies running in the foreground
     if (*options != NULL && strcmp(*options, "-fg") == 0) {
         foreground = 1;
         localOptions = options + 1;
     }
 
-    // Extract the process ID from options
     pid_t pid = (*localOptions != NULL) ? atoi(*localOptions) : 0;
 
-    // If PID is 0 or not found, display all background jobs
     if (pid == 0 || findProcessIndexByPid(processList, pid) == -1) {
         deleteFinishedProcesses(processList);
         deleteSignaledProcesses(processList);
@@ -608,31 +483,45 @@ void JobCommand(char** options, BackgroundProcessList* processList) {
         return;
     }
 
-    // If running in the foreground, display detailed information
     if (foreground == 0) {
-        showProcessInfoForeground(processList, pid);
+        pid_t childPid = fork();
+        if (childPid == 0) {
+            // Child process
+            execvp(localOptions[0], localOptions);
+            perror("execvp");
+            exit(EXIT_FAILURE);
+        } else if (childPid > 0) {
+            addBackgroundProcess(processList, childPid, (const char *) localOptions);
+        } else {
+            perror("fork");
+        }
         return;
     }
 
-    // Check if the process is already finished
     int exitStatus;
-    pid_t waitedPid = waitpid(pid, &exitStatus, WNOHANG);
-    if (waitedPid == 0) {
-        // Process is still running
-        return;
-    } else if (waitedPid == -1) { //----------------------------------------------------------
-        perror("Error while waiting for the process");
+    pid_t waitedPid = waitpid(pid, &exitStatus, 0);
+
+    if (pid != waitedPid) {
+        perror("Error esperando al proceso");
         return;
     }
 
-    // Process has finished, update its status
-    if (WIFEXITED(exitStatus)) { //----------------------------------------------------------
-        printf("Process %d terminated normally. Returned value %d\n", pid, WEXITSTATUS(exitStatus));
-        UpdateProcessStatus(pid, processList);
-    } else if (WIFSIGNALED(exitStatus)) { //----------------------------------------------------------
-        printf("Process %d terminated by signal %s\n", pid, SignalName(WTERMSIG(exitStatus)));
-        UpdateProcessStatus(pid, processList);
+    int index = findProcessIndexByPid(processList, pid);
+    if (index != -1) {
+        if (WIFEXITED(exitStatus)) {
+            processList->processes[index].status = PROCESS_FINISHED;
+            processList->processes[index].return_value = WEXITSTATUS(exitStatus);
+            printf("Proceso %d terminado normalmente. Valor devuelto %d\n", pid, WEXITSTATUS(exitStatus));
+        } else if (WIFSIGNALED(exitStatus)) {
+            processList->processes[index].status = PROCESS_SIGNALED;
+            processList->processes[index].return_value = WTERMSIG(exitStatus);
+            printf("Proceso %d terminado por señal %s\n", pid, SignalName(WTERMSIG(exitStatus)));
+        } else if (WIFSTOPPED(exitStatus)) {
+            processList->processes[index].status = PROCESS_STOPPED;
+            printf("Proceso %d parado\n", pid);
+        }
     }
-
-    ShowJobs(processList);
 }
+
+
+

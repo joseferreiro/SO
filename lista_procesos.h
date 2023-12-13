@@ -45,7 +45,7 @@ void printProcessInfo(BackgroundProcess *process);
 void listBackgroundProcesses(BackgroundProcessList *list);
 void deleteFinishedProcesses(BackgroundProcessList *list);
 void deleteSignaledProcesses(BackgroundProcessList *list);
-void showProcessInfoForeground(BackgroundProcessList *list, pid_t pid);
 void UpdateProcessListStatus(BackgroundProcessList* processList);
+const char* SignalName(int signalNumber);
 
 #endif // PROCESS_LIST_H

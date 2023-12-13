@@ -1,7 +1,6 @@
 //Autor 1: José Manuel Ferreiro López   login: jose.manuel.ferreiro@udc.es
 //Autor 2: Alvaro Mendez Linares    login: alvaro.mendez.linares@udc.es
 
-//AREGLAR LEAK DE MALLOC !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //hacer que el comando se almacene en la lista antes de procesar_entrada
 
 // NombreSenal en lista_procesos.c vs código de ayuda
@@ -67,22 +66,20 @@ int TrocearCadena(const char *cadena, char *trozos[], int maxTrozos) {
     return i;
 }
 
-int splano(char *args[], int numArgs, BackgroundProcessList *LP) {
+int splano(char *args[], BackgroundProcessList *listaproc) {
     pid_t pid;
 
     switch (pid = fork()) {
         case -1:
             perror("fork");
             return -1;
-        case 0: // Child process
+        case 0:
             if (execvp(args[0], args) == -1) {
                 perror("execvp");
                 exit(EXIT_FAILURE);
             }
-            // It's a good practice to add exit() after exec failure to ensure the child process exits
-        default: // Parent process
-            // Add the child process to the list of background processes
-            addBackgroundProcess(LP, pid, args[0]);
+        default:
+            addBackgroundProcess(listaproc, pid, args[0]);
             return 0;
     }
 }
@@ -94,55 +91,38 @@ int cmdexec(char *args[]) {
         case -1:
             perror("fork");
             return -1;
-        case 0: // Child process
+        case 0:
             if (execvp(args[0], args) == -1) {
                 perror("execvp");
                 exit(EXIT_FAILURE);
             }
-            // It's a good practice to add exit() after exec failure to ensure the child process exits
-        default: // Parent process
-            waitpid(pid, NULL, 0); // Wait for the child process to complete
+        default:
+            waitpid(pid, NULL, 0);
             return 0;
     }
 }
 
-int runInBackground(char *args[], int numArgs, BackgroundProcessList *LP) {
-    pid_t pid;
-
-    switch (pid = fork()) {
-        case -1:
-            perror("fork");
-            return -1;
-        case 0: // Child process
-            if (execvp(args[0], args) == -1) {
-                perror("execvp");
-                exit(EXIT_FAILURE);
-            }
-            // It's a good practice to add exit() after exec failure to ensure the child process exits
-        default: // Parent process
-            // Add the child process to the list of background processes
-            addBackgroundProcess(LP, pid, args[0]);
-            return 0;
-    }
-}
-
-void executeCommand(char *trozos[], int numt, int runInBackground, tListMem *listamemoria, BackgroundProcessList *LP) {
-    // Create an array for the arguments, including the program name
+void executeCommand(char *trozos[], int numt, int runInBackground, BackgroundProcessList *listaproc) {
     char *args[numt + 1];
     for (int i = 0; i < numt; i++) {
         args[i] = trozos[i];
     }
-    args[numt] = NULL;  // Null-terminate the argument array
+    args[numt] = NULL;
 
-    // Execute the command
-    int result = runInBackground ? splano(args, numt, LP) : cmdexec(args);
+    int result;
+
+    if (runInBackground) {
+        result = splano(args, listaproc);
+    } else {
+        result = cmdexec(args);
+    }
 
     if (result == -1) {
-        perror("Error executing command");
+        perror("No se pudo ejecutaar el proceso");
     }
 }
 
-void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, BackgroundProcessList *LP, int *exit, int storeCommand) {
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, BackgroundProcessList *listaproc, int *exit, int storeCommand) {
     char *trozos[TROZOS];
 
     if(storeCommand)
@@ -168,7 +148,7 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             hist(trozos[1], listcom);
 
         } else if (!strcmp(trozos[0], "command")) {
-            commandN(trozos[1], listcom, listafic, listamemoria, LP, exit);
+            commandN(trozos[1], listcom, listafic, listamemoria, listaproc, exit);
 
         } else if (!strcmp(trozos[0], "open")) {
             Cmd_open(trozos, *listafic);
@@ -249,23 +229,23 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             CommandSubstituteVariable(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "fork")){
-            ExecuteInBackground(LP);
+            ExecuteInBackground(listaproc);
 
         } else  if (!strcmp(trozos[0], "exec")){
-            ExecuteCommandWrapper((ulong) (trozos + 1));
+            cmdExec((ulong) (trozos + 1));
 
         } else  if (!strcmp(trozos[0], "jobs")){
-            ShowJobs(LP);
+            ShowJobs(listaproc);
 
         } else  if (!strcmp(trozos[0], "deljobs")){
-            DeleteJobs(trozos + 1, LP);
+            DeleteJobs(trozos + 1, listaproc);
 
         } else  if (!strcmp(trozos[0], "job")){
-            JobCommand(trozos + 1, LP);
+            JobCommand(trozos + 1, listaproc);
 
         } else {
             int runInBackground = (numt > 1 && strcmp(trozos[numt - 1], "&") == 0);
-            executeCommand(trozos, numt - runInBackground, runInBackground, listamemoria, LP);
+            executeCommand(trozos, numt - runInBackground, runInBackground, listaproc);
         }
         for (int i = 0; i < numt; i++) {
             free(trozos[i]);

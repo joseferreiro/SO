@@ -3,6 +3,93 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct SEN{
+    char *nombre;
+    int senal;
+};
+
+/*las siguientes funciones nos permiten obtener el nombre de una senal a partir
+del número y viceversa */
+static struct SEN sigstrnum[]={
+        {"HUP", SIGHUP},
+        {"INT", SIGINT},
+        {"QUIT", SIGQUIT},
+        {"ILL", SIGILL},
+        {"TRAP", SIGTRAP},
+        {"ABRT", SIGABRT},
+        {"IOT", SIGIOT},
+        {"BUS", SIGBUS},
+        {"FPE", SIGFPE},
+        {"KILL", SIGKILL},
+        {"USR1", SIGUSR1},
+        {"SEGV", SIGSEGV},
+        {"USR2", SIGUSR2},
+        {"PIPE", SIGPIPE},
+        {"ALRM", SIGALRM},
+        {"TERM", SIGTERM},
+        {"CHLD", SIGCHLD},
+        {"CONT", SIGCONT},
+        {"STOP", SIGSTOP},
+        {"TSTP", SIGTSTP},
+        {"TTIN", SIGTTIN},
+        {"TTOU", SIGTTOU},
+        {"URG", SIGURG},
+        {"XCPU", SIGXCPU},
+        {"XFSZ", SIGXFSZ},
+        {"VTALRM", SIGVTALRM},
+        {"PROF", SIGPROF},
+        {"WINCH", SIGWINCH},
+        {"IO", SIGIO},
+        {"SYS", SIGSYS},
+/*senales que no hay en todas partes*/
+#ifdef SIGPOLL
+        {"POLL", SIGPOLL},
+#endif
+#ifdef SIGPWR
+        {"PWR", SIGPWR},
+#endif
+#ifdef SIGEMT
+        {"EMT", SIGEMT},
+#endif
+#ifdef SIGINFO
+        {"INFO", SIGINFO},
+#endif
+#ifdef SIGSTKFLT
+        {"STKFLT", SIGSTKFLT},
+#endif
+#ifdef SIGCLD
+        {"CLD", SIGCLD},
+#endif
+#ifdef SIGLOST
+        {"LOST", SIGLOST},
+#endif
+#ifdef SIGCANCEL
+        {"CANCEL", SIGCANCEL},
+#endif
+#ifdef SIGTHAW
+        {"THAW", SIGTHAW},
+#endif
+#ifdef SIGFREEZE
+        {"FREEZE", SIGFREEZE},
+#endif
+#ifdef SIGLWP
+        {"LWP", SIGLWP},
+#endif
+#ifdef SIGWAITING
+        {"WAITING", SIGWAITING},
+#endif
+        {NULL,-1},
+};    /*fin array sigstrnum */
+
+const char* SignalName(int signalNumber) {
+    for (int i = 0; sigstrnum[i].nombre != NULL; i++) {
+        if (signalNumber == sigstrnum[i].senal) {
+            return sigstrnum[i].nombre;
+        }
+    }
+    return "SIGUNKNOWN";
+}
+
 void initProcessList(BackgroundProcessList *list) {
     list->processes = NULL;
     list->size = 0;
@@ -68,35 +155,34 @@ void removeProcessByIndex(BackgroundProcessList *list, int index) {
     list->processes[list->size].command_line[0] = '\0';
 }
 
-// Function to update the status of a single process
 void UpdateProcessStatus(pid_t pid, BackgroundProcessList* processList) {
     int status;
-    pid_t waitedPid = waitpid(pid, &status, WNOHANG);
-
-    if (waitedPid == -1) {
-        perror("Error while waiting for the process");
-        return;
-    }
+    pid_t waitedPid = waitpid(pid, &status, WNOHANG | WUNTRACED);
 
     int index = findProcessIndexByPid(processList, pid);
     if (index != -1) {
         if (waitedPid == 0) {
-            // Process is still running
             processList->processes[index].status = PROCESS_ACTIVE;
+        } else if (waitedPid == -1) {
+            perror("Error esperando el proceso");
         } else {
             // Process has finished
             if (WIFEXITED(status)) {
                 processList->processes[index].status = PROCESS_FINISHED;
                 processList->processes[index].return_value = WEXITSTATUS(status);
+                printf("Proceso %d terminado normalmente. Valor devuelto %d\n", pid, WEXITSTATUS(status));
             } else if (WIFSIGNALED(status)) {
                 processList->processes[index].status = PROCESS_SIGNALED;
                 processList->processes[index].return_value = WTERMSIG(status);
+                printf("Proceso %d terminado por señal %s\n", pid, SignalName(WTERMSIG(status)));
+            } else if (WIFSTOPPED(status)) {
+                processList->processes[index].status = PROCESS_STOPPED;
+                printf("Proceso %d parado\n", pid);
             }
         }
     }
 }
 
-// Function to update status of all processes in the list
 void UpdateProcessListStatus(BackgroundProcessList* processList) {
     for (int i = 0; i < processList->size; i++) {
         UpdateProcessStatus(processList->processes[i].pid, processList);
@@ -155,16 +241,5 @@ void deleteSignaledProcesses(BackgroundProcessList* list) {
         if (list->processes[i].status == PROCESS_SIGNALED) {
             removeProcessByIndex(list, i);
         }
-    }
-}
-
-void showProcessInfoForeground(BackgroundProcessList *list, pid_t pid) {
-    int index = findProcessIndexByPid(list, pid);
-    if (index != -1) {
-        printProcessInfo(&(list->processes[index]));
-        // Move the process to the foreground (simulate waiting for the process to finish)
-        UpdateProcessStatus(pid,list);
-    } else {
-        printf("Process with PID %d not found.\n", pid);
     }
 }

@@ -143,7 +143,7 @@ void hist(char *command, tListCom *list) {
     }
 }
 
-void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, BackgroundProcessList *LP, int *exit, int storeCommand);
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, BackgroundProcessList *listaproc, int *exit, int storeCommand);
 
 void commandN(char *command, tListCom *list, tListFic *listfic, tListMem *listamemoria, BackgroundProcessList *LP, int *exit) {
     int p = 0;

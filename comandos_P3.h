@@ -20,7 +20,7 @@ void CommandShowVariable(char **commandArgs);
 void CommandChangeVariable(char **commandParams);
 void CommandSubstituteVariable(char **commandParams);
 void ExecuteInBackground(BackgroundProcessList *processList);
-void ExecuteCommandWrapper(ulong param);
+void cmdExec(ulong param);
 void ShowJobs(BackgroundProcessList* processList);
 void DeleteJobs(char** options, BackgroundProcessList* processList);
 void JobCommand(char** options, BackgroundProcessList* processList);
