@@ -1,10 +1,5 @@
 //Autor 1: José Manuel Ferreiro López   login: jose.manuel.ferreiro@udc.es
-//Autor 2: Alvaro Mendez Linares    login: alvaro.mendez.linares@udc.es
-
-//hacer que el comando se almacene en la lista antes de procesar_entrada
-
-// NombreSenal en lista_procesos.c vs código de ayuda
-
+//Autor 2: Alvaro Mendez Linares    login: alvaro.mendez.linares@udc.e
 
 #include <stdio.h>
 #include <stdlib.h>
