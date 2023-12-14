@@ -127,7 +127,7 @@ void recb(char *directory, int show_hidden, int long_format, int link_format, in
     struct dirent *first;
 
     if ((dir = opendir(directory)) == NULL) {
-        perror("opendir");
+        perror("No se pudo abrir el directorio");
         return;
     }
 
@@ -157,7 +157,7 @@ void reca(char *directory, int show_hidden, int long_format, int link_format, in
     struct dirent *first;
 
     if ((dir = opendir(directory)) == NULL) {
-        perror("opendir");
+        perror("No se pudo abrir el diretorio");
         return;
     }
 
