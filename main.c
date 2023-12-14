@@ -117,7 +117,7 @@ void executeCommand(char *trozos[], int numt, int runInBackground, BackgroundPro
     }
 }
 
-void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, BackgroundProcessList *listaproc, int *exit, int storeCommand) {
+void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tListMem *listamemoria, BackgroundProcessList *processlist, int *exit, int storeCommand) {
     char *trozos[TROZOS];
 
     if(storeCommand)
@@ -143,7 +143,7 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             hist(trozos[1], listcom);
 
         } else if (!strcmp(trozos[0], "command")) {
-            commandN(trozos[1], listcom, listafic, listamemoria, listaproc, exit);
+            commandN(trozos[1], listcom, listafic, listamemoria, processlist, exit);
 
         } else if (!strcmp(trozos[0], "open")) {
             Cmd_open(trozos, *listafic);
@@ -224,23 +224,23 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             CommandSubstituteVariable(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "fork")){
-            ExecuteInBackground(listaproc);
+            ExecuteInBackground(processlist);
 
         } else  if (!strcmp(trozos[0], "exec")){
             cmdExec((ulong) (trozos + 1));
 
         } else  if (!strcmp(trozos[0], "jobs")){
-            ShowJobs(listaproc);
+            ShowJobs(processlist);
 
         } else  if (!strcmp(trozos[0], "deljobs")){
-            DeleteJobs(trozos + 1, listaproc);
+            DeleteJobs(trozos + 1, processlist);
 
         } else  if (!strcmp(trozos[0], "job")){
-            JobCommand(trozos + 1, listaproc);
+            JobCommand(trozos + 1, processlist);
 
         } else {
             int runInBackground = (numt > 1 && strcmp(trozos[numt - 1], "&") == 0);
-            executeCommand(trozos, numt - runInBackground, runInBackground, listaproc);
+            executeCommand(trozos, numt - runInBackground, runInBackground, processlist);
         }
         for (int i = 0; i < numt; i++) {
             free(trozos[i]);

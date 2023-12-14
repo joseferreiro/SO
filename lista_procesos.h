@@ -48,4 +48,4 @@ void deleteSignaledProcesses(BackgroundProcessList *processList);
 void UpdateProcessListStatus(BackgroundProcessList *processList);
 const char* SignalName(int signalNumber);
 
-#endif // PROCESS_LIST_H
+#endif

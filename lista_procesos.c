@@ -108,22 +108,19 @@ void addBackgroundProcess(BackgroundProcessList *processList, pid_t pid, const c
         BackgroundProcess *newProcesses = realloc(processList->processes, processList->capacity * sizeof(BackgroundProcess));
 
         if (newProcesses == NULL) {
-            perror("Error reallocating memory");
+            perror("Error alocando memoria");
             exit(EXIT_FAILURE);
         }
-
-        // Update the processes pointer only if realloc is successful
         processList->processes = newProcesses;
     }
 
     int index = processList->size;
     processList->processes[index].pid = pid;
-    processList->processes[index].parent_pid = getpid(); // Set parent_pid to the current process ID
+    processList->processes[index].parent_pid = getpid();
     processList->processes[index].status = PROCESS_ACTIVE;
     processList->processes[index].return_value = 0;
-    processList->processes[index].launch_time = time(NULL);  // Set launch_time to current time
+    processList->processes[index].launch_time = time(NULL);
 
-    // Use strncpy to copy the commandLine, but ensure null-termination
     strncpy(processList->processes[index].command_line, commandLine, sizeof(processList->processes[index].command_line) - 1);
     processList->processes[index].command_line[sizeof(processList->processes[index].command_line) - 1] = '\0';
 
@@ -141,17 +138,15 @@ int findProcessIndexByPid(BackgroundProcessList *processList, pid_t pid) {
 
 void removeProcessByIndex(BackgroundProcessList *processList, int index) {
     if (index < 0 || index >= processList->size) {
-        return;  // Invalid index
+        return;
     }
 
-    // Shift elements to fill the gap
     for (int i = index; i < processList->size - 1; i++) {
         processList->processes[i] = processList->processes[i + 1];
     }
 
     processList->size--;
 
-    // After shifting, ensure that the command_line of the last element is set to NULL
     processList->processes[processList->size].command_line[0] = '\0';
 }
 
@@ -166,7 +161,6 @@ void UpdateProcessStatus(pid_t pid, BackgroundProcessList *processList) {
         } else if (waitedPid == -1) {
             perror("Error esperando el proceso");
         } else {
-            // Process has finished
             if (WIFEXITED(status)) {
                 processList->processes[index].status = PROCESS_FINISHED;
                 processList->processes[index].return_value = WEXITSTATUS(status);
@@ -190,33 +184,30 @@ void UpdateProcessListStatus(BackgroundProcessList *processList) {
 }
 
 void printProcessInfo(BackgroundProcess *process) {
-    // Check if process is NULL (added for safety)
     if (process == NULL) {
-        fprintf(stderr, "Error: NULL process passed to printProcessInfo\n");
+        fprintf(stderr, "Error: Proceso inexistente pasado a printProcessInfo\n");
         return;
     }
 
     printf("%5d %-10s p=%-5d %s", process->pid, getpwuid(getuid())->pw_name, process->return_value,
            process->status == PROCESS_ACTIVE ? "ACTIVO" :
            (process->status == PROCESS_FINISHED ? "TERMINADO" :
-            (process->status == PROCESS_SIGNALED ? "SIGNALED" : "STOPPED")));
+            (process->status == PROCESS_SIGNALED ? "SIGNALED" : "PARADO")));
 
-    // Check if launch_time is a valid time
     if (process->launch_time > 0) {
         struct tm *tm_info;
         char buffer[26];
 
         tm_info = localtime(&process->launch_time);
 
-        // Check if tm_info is not NULL (added for safety)
         if (tm_info != NULL) {
             strftime(buffer, 26, " %Y/%m/%d %H:%M:%S", tm_info);
             printf("%s", buffer);
         } else {
-            fprintf(stderr, "Error: Unable to get local time information\n");
+            fprintf(stderr, "Error: No se pudo obtener la fecha\n");
         }
     } else {
-        fprintf(stderr, "Error: Invalid launch_time in process\n");
+        fprintf(stderr, "Error: No se pudo obtener el momento de ejecución\n");
     }
 
     printf(" (%03d) %s\n", process->return_value, process->command_line);
