@@ -146,8 +146,13 @@ void ClearListMemBlock(tListMem *list) {
             if (current->direccion != 0) {
                 munmap((void *)current->direccion, current->size);
             }
-        } else if (current->memoryInfo.allocationType == MEM_TYPE_SHARED_FLAG) {
+        } else if (current->memoryInfo.allocationType == MEM_TYPE_MALLOC_FLAG) {
             free((void *)current->direccion);
+        } else if (current->memoryInfo.allocationType == MEM_TYPE_SHARED_FLAG) {
+            int shmId = shmget((key_t) current->memoryInfo.otherInfo.sharedMemoryKey, 0, 0);
+            if (shmId != -1) {
+                shmctl(shmId, IPC_RMID, NULL);
+            }
         }
 
         next = current->next;

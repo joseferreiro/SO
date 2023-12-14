@@ -27,23 +27,23 @@ ssize_t LeerFichero(char *f, void *p, size_t cont) {
     int df, aux;
 
     if (f == NULL || p == NULL) {
-        fprintf(stderr, "Invalid parameters\n");
+        fprintf(stderr, "Parametros no válidos\n");
         return -1;
     }
 
     if (stat(f, &s) == -1 || (df = open(f, O_RDONLY)) == -1) {
-        perror("Unable to open file");
+        perror("No se pudo abrir el archivo");
         return -1;
     }
 
-    if (cont == -1)   /* if we pass -1 as bytes to read, read the entire file */
+    if (cont == -1)
         cont = s.st_size;
 
     if ((n = read(df, p, cont)) == -1) {
         aux = errno;
         close(df);
         errno = aux;
-        perror("Unable to read file");
+        perror("No se pudo leer el archivo");
         return -1;
     }
 
@@ -94,9 +94,9 @@ void read_fun(char *ar[]) {
     }
 }
 
-void write_fun(char **params, tListMem *lista) {
+void write_fun(char **args, tListMem *lista) {
     int overwrite = 0;
-    char **parameters = params;
+    char **parameters = args;
 
     if (*parameters == NULL) {
         puts("Faltan parametros");
@@ -176,10 +176,6 @@ ulong GetNodeAddressMalloc(tListMem *lista, size_t size) {
 ulong NodeAddressMalloc(tListMem *lista, size_t size) {
     ulong index = GetNodeAddressMalloc(lista, size);
 
-    if (index == -1) {
-        return 0;
-    }
-
     tNodeMem *current = *lista;
 
     for (ulong i = 0; i < index; ++i) {
@@ -232,6 +228,8 @@ void malloc_fun(char **args, tListMem *lista) {
         Malloc(args, lista);
     }
 }
+
+
 
 void Recursiva(int n) {
     char automatico[TAMANO];
@@ -288,11 +286,11 @@ void PrintMappedList(tListMem *list) {
     PrintList(list, MEM_TYPE_MMAP_FLAG);
 }
 
-void mmap_Aux(char **params, tListMem *memList) {
-    if (*params == NULL) {
+void mmap_Aux(char **args, tListMem *memList) {
+    if (*args == NULL) {
         PrintMappedList(memList);
     } else {
-        char *fileName = *params;
+        char *fileName = *args;
 
         if (strlen(fileName) < 1) {
             fprintf(stderr, "Error: Nombre no válido\n");
@@ -303,7 +301,7 @@ void mmap_Aux(char **params, tListMem *memList) {
         char *permissions;
         ulong flags;
 
-        permissions = params[1];
+        permissions = args[1];
 
         if (permissions != NULL && (fileNameLength = strlen(permissions)) < 4) {
             flags = 0;
@@ -353,21 +351,21 @@ void DeallocateMappedNode(char *fileName, tListMem *list) {
     printf("Archivo %s no mapeado\n", fileName);
 }
 
-void demmap(char **parameters, tListMem *list) {
-    if (*parameters == NULL) {
+void demmap(char **args, tListMem *list) {
+    if (*args == NULL) {
         PrintMappedList(list);
     } else {
-        DeallocateMappedNode(*parameters, list);
+        DeallocateMappedNode(*args, list);
     }
 }
 
-void mmap_fun(char **parameters, tListMem *list) {
+void mmap_fun(char **args, tListMem *list) {
     int result;
 
-    if (*parameters != NULL && (result = strcmp(*parameters, "-free"), result == 0)) {
-        demmap(parameters + 1, list);
+    if (*args != NULL && (result = strcmp(*args, "-free"), result == 0)) {
+        demmap(args + 1, list);
     } else {
-        mmap_Aux(parameters, list);
+        mmap_Aux(args, list);
     }
 }
 
@@ -398,13 +396,13 @@ void DeallocShared(int key, tListMem *lista) {
     }
 }
 
-void Deshare(char **params, tListMem *lista) {
+void Deshare(char **args, tListMem *lista) {
     ulong key;
 
-    if (*params == (char *)0x0) {
+    if (*args == (char *)0x0) {
         PrintSharedList(lista);
     } else {
-        key = strtoul(*params, (char **)0x0, 10);
+        key = strtoul(*args, (char **)0x0, 10);
         DeallocShared((int) key, lista);
     }
 }
@@ -453,17 +451,17 @@ void *GetShmMemory(int key, size_t size, tListMem *lista) {
     return shmAddr;
 }
 
-void CreateShared(char **params, tListMem *lista) {
+void CreateShared(char **args, tListMem *lista) {
     ulong key, size;
     void *memoryAddr;
     int *errorPtr;
     char *errorString;
 
-    if ((*params == (char *)0x0) || (params[1] == (char *)0x0)) {
+    if ((*args == (char *)0x0) || (args[1] == (char *)0x0)) {
         PrintSharedList(lista);
     } else {
-        key = strtoul(*params, (char **)0x0, 10);
-        size = strtoul(params[1], (char **)0x0, 10);
+        key = strtoul(*args, (char **)0x0, 10);
+        size = strtoul(args[1], (char **)0x0, 10);
 
         if (size == 0) {
             puts("No se asignan bloques de 0 bytes");
@@ -481,12 +479,12 @@ void CreateShared(char **params, tListMem *lista) {
     }
 }
 
-void DeleteKey(char **params, tListMem *lista) {
+void DeleteKey(char **args, tListMem *lista) {
     int shmId, result;
     int key;
 
-    if (*params != NULL) {
-        key = strtoul(*params, NULL, 10);
+    if (*args != NULL) {
+        key = strtoul(*args, NULL, 10);
         if ((int)key != 0) {
             shmId = shmget((int)key, 0, 0x1b6);
             if (shmId == -1) {
@@ -506,17 +504,17 @@ void DeleteKey(char **params, tListMem *lista) {
     puts("delkey necesita una clave valida");
 }
 
-void MemShared(char **params, tListMem  *lista) {
+void MemShared(char **args, tListMem  *lista) {
     int shmKey;
     ulong key;
     void *memoryAddr;
     int *errorPtr;
     char *errorString;
 
-    if (*params == (char *)0x0) {
+    if (*args == (char *)0x0) {
         PrintSharedList(lista);
     } else {
-        key = strtoul(*params, (char **)0x0, 10);
+        key = strtoul(*args, (char **)0x0, 10);
         shmKey = (int)key;
         memoryAddr = GetShmMemory(shmKey, 0, lista);
 
@@ -530,25 +528,25 @@ void MemShared(char **params, tListMem  *lista) {
     }
 }
 
-void Shared(char **params, tListMem *lista) {
+void Shared(char **args, tListMem *lista) {
     int result;
 
-    if (*params == (char *)0x0) {
+    if (*args == (char *)0x0) {
         PrintSharedList(lista);
     } else {
-        result = strcmp(*params, "-free");
+        result = strcmp(*args, "-free");
         if (result == 0) {
-            Deshare(params + 1, lista);
+            Deshare(args + 1, lista);
         } else {
-            result = strcmp(*params, "-create");
+            result = strcmp(*args, "-create");
             if (result == 0) {
-                CreateShared(params + 1, lista);
+                CreateShared(args + 1, lista);
             } else {
-                result = strcmp(*params, "-delkey");
+                result = strcmp(*args, "-delkey");
                 if (result == 0) {
-                    DeleteKey(params + 1, lista);
+                    DeleteKey(args + 1, lista);
                 } else {
-                    MemShared(params, lista);
+                    MemShared(args, lista);
                 }
             }
         }
@@ -573,24 +571,24 @@ unsigned long long cadtop(char *str) {
     return result;
 }
 
-void memdump(char **params) {
-    unsigned long long count = 0x19; // Default count
-    if (params[1] != NULL) {
-        count = strtoull(params[1], (char **)0x0, 10);
+void memdump(char **args) {
+    unsigned long long count = 0x19;
+    if (args[1] != NULL) {
+        count = strtoull(args[1], (char **)0x0, 10);
     }
 
-    unsigned long long address = cadtop(params[0]);
-    printf("Dumping %llu bytes from address %p\n", count, (void *)address);
+    unsigned long long address = cadtop(args[0]);
+    printf("Vertiendo %llu bytes desde la dirección %p\n", count, (void *)address);
     Show_Mem((void *) address, count);
 }
 
 
 
-ulong ConvertByte(const char *param) {
-    if (param[0] == '\'' && param[2] == '\'' && param[3] == '\0') {
-        return (ulong)(u_char)param[1];
+ulong ConvertByte(const char *arg) {
+    if (arg[0] == '\'' && arg[2] == '\'' && arg[3] == '\0') {
+        return (ulong)(u_char)arg[1];
     } else {
-        return strtoul(param, NULL, 0);
+        return strtoul(arg, NULL, 0);
     }
 }
 
@@ -602,21 +600,21 @@ void LlenarMemoria (void *p, size_t cont, unsigned char byte) {
         arr[i]=byte;
 }
 
-void memfill(long *params) {
-    if (params[0] == 0) {
+void memfill(char **args) {
+    if (args[0] == 0) {
         printf("Faltan parametros\n");
         return;
     }
 
-    long address = strtol((char *)params[0], NULL, 16);
+    long address = strtol(args[0], NULL, 16);
     if (address == 0 && errno == EINVAL) {
         perror("Dirección no válida");
         return;
     }
 
     ulong size = 0x80;
-    if (params[1] != 0) {
-        size = strtoul((char *)params[1], NULL, 10);
+    if (args[1] != 0) {
+        size = strtoul(args[1], NULL, 10);
         if (size == 0 && errno == EINVAL) {
             perror("Tamaño no válido");
             return;
@@ -624,8 +622,8 @@ void memfill(long *params) {
     }
 
     u_char fillByte = 0x41;
-    if (params[2] != 0) {
-        fillByte = (u_char)ConvertByte((char *)params[2]);
+    if (args[2] != 0) {
+        fillByte = (u_char)ConvertByte(args[2]);
         if (fillByte == 0 && errno == EINVAL) {
             perror("Byte no válido");
             return;
@@ -646,9 +644,9 @@ void PrintListMem(tListMem *lista) {
     PrintList(lista, 2);
 }
 
-void print_funcs(void);
+void print_funcs();
 
-void print_vars(void) {
+void print_vars() {
     u_char local1[4];
     u_char local2[4];
     u_char local3[4];
@@ -660,7 +658,7 @@ void print_vars(void) {
     printf("Variables estáticas no inicializadas: %17p, %18p, %18p\n", &gsnd1, &gsnd2, &gsnd3);
 }
 
-void print_pmap(void) {
+void print_pmap() {
     u_char local_38[44];
     int myVariable;
     char *pmapArgs[] = {"print_pmap", (char *)local_38, NULL};
@@ -685,19 +683,19 @@ void print_pmap(void) {
     }
 }
 
-void mem(char **param_1, tListMem *lista) {
-    if (*param_1 != NULL) {
-        if (strcmp(*param_1, "-blocks") == 0) {
+void mem(char **args, tListMem *lista) {
+    if (*args != NULL) {
+        if (strcmp(*args, "-blocks") == 0) {
             PrintListMem(lista);
-        } else if (strcmp(*param_1, "-funcs") == 0) {
+        } else if (strcmp(*args, "-funcs") == 0) {
             print_funcs();
-        } else if (strcmp(*param_1, "-vars") == 0) {
+        } else if (strcmp(*args, "-vars") == 0) {
             print_vars();
-        } else if (strcmp(*param_1, "-all") == 0) {
+        } else if (strcmp(*args, "-all") == 0) {
             print_vars();
             print_funcs();
             PrintListMem(lista);
-        } else if (strcmp(*param_1, "-pmap") == 0) {
+        } else if (strcmp(*args, "-pmap") == 0) {
             print_pmap();
         } else {
             printf("Parametros no válidos\n");

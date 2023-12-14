@@ -200,7 +200,7 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             memdump((trozos + 1));
 
         } else  if (!strcmp(trozos[0], "memfill")){
-            memfill((long *) (trozos + 1));
+            memfill(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "mem")){
             mem((trozos + 1), listamemoria);

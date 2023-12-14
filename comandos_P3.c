@@ -369,16 +369,11 @@ void cmdExec(char **process) {
 
     if (*process == NULL) {
         errno = EINVAL;
-        result = -1;
     } else {
         result = execvp(*process, process);
         if (result == -1) {
-            perror("execvp");
+            perror("No se pudo ejecutar el proceso");
         }
-    }
-
-    if (result == -1) {
-        perror("No se pudo ejecutar el proceso");
     }
 }
 

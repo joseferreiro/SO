@@ -26,13 +26,13 @@
 #define MAP_EXECUTE 0x08
 
 void read_fun(char *ar[]);
-void write_fun(char **params, tListMem *lista);
+void write_fun(char **args, tListMem *lista);
 void malloc_fun(char **args, tListMem *lista);
 void Recurse(char **args);
-void mmap_fun(char **parameters, tListMem *list);
-void Shared(char **params, tListMem *lista);
-void memdump(char **params);
-void memfill(long *params);
-void mem(char **param_1, tListMem *lista);
+void mmap_fun(char **args, tListMem *list);
+void Shared(char **args, tListMem *lista);
+void memdump(char **args);
+void memfill(char **args);
+void mem(char **args, tListMem *lista);
 
 #endif
