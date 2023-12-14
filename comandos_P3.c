@@ -38,8 +38,6 @@ void CommandUid(char **commandArgs)
 {
     char **commandParams;
     int comparisonResult;
-    int *errorPointer;
-    char *errorMessage;
     __uid_t targetUid;
 
     //(char) 0x0 en lugar de NULL para que no proteste el compilador
@@ -57,7 +55,7 @@ void CommandUid(char **commandArgs)
             if (comparisonResult == 0) {
                 targetUid = GetUidByUsername(commandArgs[2]);
                 if (targetUid == (__uid_t)-1) {
-                    printf("Nonexistent user: %s\n", commandArgs[2]);
+                    printf("El usuario %s no existe\n", commandArgs[2]);
                     return;
                 }
             } else {
@@ -66,15 +64,13 @@ void CommandUid(char **commandArgs)
                     targetUid = (__uid_t)-1;
                 }
                 if (targetUid == (__uid_t)-1) {
-                    printf("Invalid credential value: %s\n", *commandParams);
+                    printf("Credenciales inválidas: %s\n", *commandParams);
                     return;
                 }
             }
             comparisonResult = seteuid(targetUid);
             if (comparisonResult == -1) {
-                errorPointer = __errno_location();
-                errorMessage = strerror(*errorPointer);
-                printf("Unable to change credential: %s\n", errorMessage);
+                perror("No se pudo cambiar la credencial");
             }
         }
     }
@@ -204,9 +200,7 @@ int FindVariableIndex(const char *targetVariable, long arrayAddress) {
     return -1;
 }
 
-
-int ChangeVariable(char *variable, char *value, long arrayAddress)
-{
+int ChangeVariable(char *variable, char *value, long arrayAddress){
     if (variable == NULL || value == NULL) {
         errno = EINVAL;
         return -1;
@@ -237,13 +231,13 @@ int ChangeVariable(char *variable, char *value, long arrayAddress)
 
 int ChangeVariablePutenv(char *variable, char *value) {
     if (variable == NULL || value == NULL) {
-        perror("Invalid argument");
+        perror("Argumento no válido");
         return -1;
     }
 
     char *newVariable = malloc(strlen(variable) + strlen(value) + 2);
     if (newVariable == NULL) {
-        perror("Error allocating memory");
+        perror("Error alocando memoria");
         return -1;
     }
 
@@ -252,7 +246,7 @@ int ChangeVariablePutenv(char *variable, char *value) {
     strcat(newVariable, value);
 
     if (putenv(newVariable) != 0) {
-        perror("Error setting environment variable");
+        perror("Error modificando la variable de entorno");
         free(newVariable);
         return -1;
     }
@@ -260,15 +254,12 @@ int ChangeVariablePutenv(char *variable, char *value) {
     return 0;
 }
 
-void CommandChangeVariable(char **commandParams)
-{
+void CommandChangeVariable(char **commandParams){
     int comparisonResult;
-    int *errorPointer;
-    char *errorMessage;
     int result;
 
     if (*commandParams == NULL || commandParams[1] == NULL || commandParams[2] == NULL) {
-        printf("Usage: %s [-a|-e|-p] variable value\n", commandParams[-1]);
+        printf("Uso: %s [-a|-e|-p] variable valor\n", commandParams[-1]);
     } else {
         comparisonResult = strcmp(*commandParams, "-a");
         if (comparisonResult == 0) {
@@ -280,16 +271,14 @@ void CommandChangeVariable(char **commandParams)
             } else {
                 comparisonResult = strcmp(*commandParams, "-p");
                 if (comparisonResult != 0) {
-                    printf("Usage: %s [-a|-e|-p] variable value\n", commandParams[-1]);
+                    printf("Uso: %s [-a|-e|-p] variable valor\n", commandParams[-1]);
                     return;
                 }
                 result = ChangeVariablePutenv(commandParams[1], commandParams[2]);
             }
         }
         if (result == -1) {
-            errorPointer = __errno_location();
-            errorMessage = strerror(*errorPointer);
-            printf("Unable to change variable: %s\n", errorMessage);
+            perror("No se pudo cambiar la variable");
         }
     }
 }
@@ -340,7 +329,7 @@ void CommandSubstituteVariable(char **commandParams) {
     int result = 0;
 
     if (commandParams == NULL || commandParams[1] == NULL || commandParams[2] == NULL || commandParams[3] == NULL) {
-        printf("Usage: %s [-a|-e] variable1 variable2 value\n", (commandParams && commandParams[-1]) ? commandParams[-1] : "unknown_command");
+        printf("Uso: %s [-a|-e] variable1 variable2 valor\n", (commandParams && commandParams[-1]) ? commandParams[-1] : "unknown_command");
     } else {
         comparisonResult = strcmp(commandParams[0], "-a");
         if (comparisonResult == 0) {
@@ -348,7 +337,7 @@ void CommandSubstituteVariable(char **commandParams) {
         } else {
             comparisonResult = strcmp(commandParams[0], "-e");
             if (comparisonResult != 0) {
-                printf("Usage: %s [-a|-e] var1 var2 value\n", (commandParams && commandParams[-1]) ? commandParams[-1] : "unknown_command");
+                printf("Uso: %s [-a|-e] variable1 variable2 valor\n", (commandParams && commandParams[-1]) ? commandParams[-1] : "unknown_command");
                 return;
             }
             result = ReplaceVariableValue(commandParams[1], commandParams[3], commandParams[2], (long)environ);
@@ -356,7 +345,7 @@ void CommandSubstituteVariable(char **commandParams) {
         if (result == -1) {
             errorPointer = __errno_location();
             errorMessage = strerror(*errorPointer);
-            printf("Unable to substitute variable %s with %s: %s\n", commandParams[1], commandParams[2], errorMessage);
+            printf("No se pudo substituir la variable %s con %s: %s\n", commandParams[1], commandParams[2], errorMessage);
         }
     }
 }
@@ -373,7 +362,7 @@ void ExecuteInBackground(BackgroundProcessList *processList)
     if (childProcessID == 0) {
         cleanupProcessList(processList);
         processID = getpid();
-        printf("Executing process %d\n", (unsigned int)processID);
+        printf("Ejecutando proceso %d\n", (unsigned int)processID);
     } else if (childProcessID != -1) {
         waitpid(childProcessID, 0, 0);
     }
@@ -450,15 +439,8 @@ void DeleteJobs(char** options, BackgroundProcessList* processList) {
             deleteFinishedProcesses(processList);
         } else if (strcmp(options[i], "-sig") == 0) {
             deleteSignaledProcesses(processList);
-        } else if (strcmp(options[i], "-all") == 0) {
-            deleteFinishedProcesses(processList);
-            deleteSignaledProcesses(processList);
-        } else if (strcmp(options[i], "-clear") == 0) {
-            cleanupProcessList(processList);
-            initProcessList(processList);
         }
     }
-
     ShowJobs(processList);
 }
 
@@ -483,7 +465,6 @@ void JobCommand(char** options, BackgroundProcessList* processList) {
     if (foreground == 0) {
         pid_t childPid = fork();
         if (childPid == 0) {
-            // Child process
             execvp(localOptions[0], localOptions);
             perror("execvp");
             exit(EXIT_FAILURE);

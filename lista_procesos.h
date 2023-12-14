@@ -22,7 +22,7 @@ typedef enum {
 
 typedef struct {
     pid_t pid;
-    pid_t parent_pid;  // Added parent process ID
+    pid_t parent_pid;
     time_t launch_time;
     ProcessStatus status;
     int return_value;
@@ -35,17 +35,17 @@ typedef struct {
     int capacity;
 } BackgroundProcessList;
 
-void initProcessList(BackgroundProcessList *list);
-void cleanupProcessList(BackgroundProcessList *list);
-void addBackgroundProcess(BackgroundProcessList *list, pid_t pid, const char *commandLine);
-int findProcessIndexByPid(BackgroundProcessList *list, pid_t pid);
-void removeProcessByIndex(BackgroundProcessList *list, int index);
-void UpdateProcessStatus(pid_t pid, BackgroundProcessList* processList);
+void initProcessList(BackgroundProcessList *processList);
+void cleanupProcessList(BackgroundProcessList *processList);
+void addBackgroundProcess(BackgroundProcessList *processList, pid_t pid, const char *commandLine);
+int findProcessIndexByPid(BackgroundProcessList *processList, pid_t pid);
+void removeProcessByIndex(BackgroundProcessList *processList, int index);
+void UpdateProcessStatus(pid_t pid, BackgroundProcessList *processList);
 void printProcessInfo(BackgroundProcess *process);
-void listBackgroundProcesses(BackgroundProcessList *list);
-void deleteFinishedProcesses(BackgroundProcessList *list);
-void deleteSignaledProcesses(BackgroundProcessList *list);
-void UpdateProcessListStatus(BackgroundProcessList* processList);
+void listBackgroundProcesses(BackgroundProcessList *processList);
+void deleteFinishedProcesses(BackgroundProcessList *processList);
+void deleteSignaledProcesses(BackgroundProcessList *processList);
+void UpdateProcessListStatus(BackgroundProcessList *processList);
 const char* SignalName(int signalNumber);
 
 #endif // PROCESS_LIST_H

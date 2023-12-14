@@ -66,7 +66,7 @@ int TrocearCadena(const char *cadena, char *trozos[], int maxTrozos) {
     return i;
 }
 
-int splano(char *args[], BackgroundProcessList *listaproc) {
+int RBackground(char *args[], BackgroundProcessList *listaproc) {
     pid_t pid;
 
     switch (pid = fork()) {
@@ -112,13 +112,13 @@ void executeCommand(char *trozos[], int numt, int runInBackground, BackgroundPro
     int result;
 
     if (runInBackground) {
-        result = splano(args, listaproc);
+        result = RBackground(args, listaproc);
     } else {
         result = cmdexec(args);
     }
 
     if (result == -1) {
-        perror("No se pudo ejecutaar el proceso");
+        perror("No se pudo ejecutar el proceso");
     }
 }
 
@@ -262,11 +262,11 @@ int main(int argc, char const *argv[], char *envp[]) {
     tListCom list;
     tListFic listaficheros;
     tListMem listamemoria;
-    BackgroundProcessList LP;
+    BackgroundProcessList processlist;
     CreateListCom(&list);
     CreateListFic(&listaficheros);
     CreateListMemBlock(&listamemoria);
-    initProcessList(&LP);
+    initProcessList(&processlist);
     ulong var = (ulong) envp;
 
     main3arg = var;
@@ -279,12 +279,12 @@ int main(int argc, char const *argv[], char *envp[]) {
     while (exit == 0){
         imprimirPrompt();
         leerEntrada(command);
-        procesar_entrada(command, &list, &listaficheros, &listamemoria, &LP, &exit, storeCommand);
+        procesar_entrada(command, &list, &listaficheros, &listamemoria, &processlist, &exit, storeCommand);
     }
     ClearListFic(&listaficheros);
     ClearListCom(&list);
     ClearListMemBlock(&listamemoria);
-    cleanupProcessList(&LP);
+    cleanupProcessList(&processlist);
     return 0;
 }
 

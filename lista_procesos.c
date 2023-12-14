@@ -90,22 +90,22 @@ const char* SignalName(int signalNumber) {
     return "SIGUNKNOWN";
 }
 
-void initProcessList(BackgroundProcessList *list) {
-    list->processes = NULL;
-    list->size = 0;
-    list->capacity = 0;
+void initProcessList(BackgroundProcessList *processList) {
+    processList->processes = NULL;
+    processList->size = 0;
+    processList->capacity = 0;
 }
 
-void cleanupProcessList(BackgroundProcessList *list) {
-    if (list->processes != NULL) {
-        free(list->processes);
+void cleanupProcessList(BackgroundProcessList *processList) {
+    if (processList->processes != NULL) {
+        free(processList->processes);
     }
 }
 
-void addBackgroundProcess(BackgroundProcessList *list, pid_t pid, const char *commandLine) {
-    if (list->size >= list->capacity) {
-        list->capacity = (list->capacity == 0) ? 1 : list->capacity * 2;
-        BackgroundProcess *newProcesses = realloc(list->processes, list->capacity * sizeof(BackgroundProcess));
+void addBackgroundProcess(BackgroundProcessList *processList, pid_t pid, const char *commandLine) {
+    if (processList->size >= processList->capacity) {
+        processList->capacity = (processList->capacity == 0) ? 1 : processList->capacity * 2;
+        BackgroundProcess *newProcesses = realloc(processList->processes, processList->capacity * sizeof(BackgroundProcess));
 
         if (newProcesses == NULL) {
             perror("Error reallocating memory");
@@ -113,49 +113,49 @@ void addBackgroundProcess(BackgroundProcessList *list, pid_t pid, const char *co
         }
 
         // Update the processes pointer only if realloc is successful
-        list->processes = newProcesses;
+        processList->processes = newProcesses;
     }
 
-    int index = list->size;
-    list->processes[index].pid = pid;
-    list->processes[index].parent_pid = getpid(); // Set parent_pid to the current process ID
-    list->processes[index].status = PROCESS_ACTIVE;
-    list->processes[index].return_value = 0;
-    list->processes[index].launch_time = time(NULL);  // Set launch_time to current time
+    int index = processList->size;
+    processList->processes[index].pid = pid;
+    processList->processes[index].parent_pid = getpid(); // Set parent_pid to the current process ID
+    processList->processes[index].status = PROCESS_ACTIVE;
+    processList->processes[index].return_value = 0;
+    processList->processes[index].launch_time = time(NULL);  // Set launch_time to current time
 
     // Use strncpy to copy the commandLine, but ensure null-termination
-    strncpy(list->processes[index].command_line, commandLine, sizeof(list->processes[index].command_line) - 1);
-    list->processes[index].command_line[sizeof(list->processes[index].command_line) - 1] = '\0';
+    strncpy(processList->processes[index].command_line, commandLine, sizeof(processList->processes[index].command_line) - 1);
+    processList->processes[index].command_line[sizeof(processList->processes[index].command_line) - 1] = '\0';
 
-    list->size++;
+    processList->size++;
 }
 
-int findProcessIndexByPid(BackgroundProcessList *list, pid_t pid) {
-    for (int i = 0; i < list->size; i++) {
-        if (list->processes[i].pid == pid) {
+int findProcessIndexByPid(BackgroundProcessList *processList, pid_t pid) {
+    for (int i = 0; i < processList->size; i++) {
+        if (processList->processes[i].pid == pid) {
             return i;
         }
     }
     return -1;
 }
 
-void removeProcessByIndex(BackgroundProcessList *list, int index) {
-    if (index < 0 || index >= list->size) {
+void removeProcessByIndex(BackgroundProcessList *processList, int index) {
+    if (index < 0 || index >= processList->size) {
         return;  // Invalid index
     }
 
     // Shift elements to fill the gap
-    for (int i = index; i < list->size - 1; i++) {
-        list->processes[i] = list->processes[i + 1];
+    for (int i = index; i < processList->size - 1; i++) {
+        processList->processes[i] = processList->processes[i + 1];
     }
 
-    list->size--;
+    processList->size--;
 
     // After shifting, ensure that the command_line of the last element is set to NULL
-    list->processes[list->size].command_line[0] = '\0';
+    processList->processes[processList->size].command_line[0] = '\0';
 }
 
-void UpdateProcessStatus(pid_t pid, BackgroundProcessList* processList) {
+void UpdateProcessStatus(pid_t pid, BackgroundProcessList *processList) {
     int status;
     pid_t waitedPid = waitpid(pid, &status, WNOHANG | WUNTRACED);
 
@@ -183,7 +183,7 @@ void UpdateProcessStatus(pid_t pid, BackgroundProcessList* processList) {
     }
 }
 
-void UpdateProcessListStatus(BackgroundProcessList* processList) {
+void UpdateProcessListStatus(BackgroundProcessList *processList) {
     for (int i = 0; i < processList->size; i++) {
         UpdateProcessStatus(processList->processes[i].pid, processList);
     }
@@ -222,24 +222,24 @@ void printProcessInfo(BackgroundProcess *process) {
     printf(" (%03d) %s\n", process->return_value, process->command_line);
 }
 
-void listBackgroundProcesses(BackgroundProcessList *list) {
-    for (int i = 0; i < list->size; i++) {
-        printProcessInfo(&(list->processes[i]));
+void listBackgroundProcesses(BackgroundProcessList *processList) {
+    for (int i = 0; i < processList->size; i++) {
+        printProcessInfo(&(processList->processes[i]));
     }
 }
 
-void deleteFinishedProcesses(BackgroundProcessList* list) {
-    for (int i = list->size - 1; i >= 0; i--) {
-        if (list->processes[i].status == PROCESS_FINISHED) {
-            removeProcessByIndex(list, i);
+void deleteFinishedProcesses(BackgroundProcessList *processList) {
+    for (int i = processList->size - 1; i >= 0; i--) {
+        if (processList->processes[i].status == PROCESS_FINISHED) {
+            removeProcessByIndex(processList, i);
         }
     }
 }
 
-void deleteSignaledProcesses(BackgroundProcessList* list) {
-    for (int i = list->size - 1; i >= 0; i--) {
-        if (list->processes[i].status == PROCESS_SIGNALED) {
-            removeProcessByIndex(list, i);
+void deleteSignaledProcesses(BackgroundProcessList *processList) {
+    for (int i = processList->size - 1; i >= 0; i--) {
+        if (processList->processes[i].status == PROCESS_SIGNALED) {
+            removeProcessByIndex(processList, i);
         }
     }
 }
