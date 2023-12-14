@@ -437,7 +437,7 @@ void cmdExec(ulong param)
     }
 }
 
-//----------------------------------------------
+
 
 void ShowJobs(BackgroundProcessList* processList) {
     UpdateProcessListStatus(processList);
