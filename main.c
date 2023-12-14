@@ -23,8 +23,8 @@
 
 #define TROZOS 15  //numere de trozos que se pueden almacenar en la array trozos
 
-ulong main3arg;      //----------------------
-ulong *addrmain3arg; //----------------------
+ulong main3arg;
+ulong *addrmain3arg;
 
 int TrocearCadena(const char *cadena, char *trozos[], int maxTrozos) {
     int i = 0;
