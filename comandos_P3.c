@@ -382,7 +382,7 @@ void ExecuteInBackground(BackgroundProcessList *processList)
 
 
 //ExecuteCommand que no termina la shell
-int ExecuteCommand(char **params)
+/*int ExecuteCommand(char **params)
 {
     pid_t childPID;
     int status;
@@ -409,26 +409,23 @@ int ExecuteCommand(char **params)
         return status;
     }
 }
+ */
 
 //ExecuteCommand que termina la shell (como la de referencia)
-/* int ExecuteCommand(char **params)
+int ExecuteCommand(char **params)
 {
     int result;
-    id_t processID;
     int *errorLocation;
-    char *errorMessage;
 
     if (*params == NULL) {
         errorLocation = __errno_location();
         *errorLocation = 0xe;
         result = -1;
     } else {
-        processID = getpid();
-
         result = execvp(*params, params);
     }
     return result;
-} */
+}
 
 
 void cmdExec(ulong param)
