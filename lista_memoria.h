@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef UNTITLED_LISTA_MEMORIA_H
-#define UNTITLED_LISTA_MEMORIA_H
+#ifndef MEM_LIST
+#define MEM_LIST
 #define MAXLENC 50
 #define MEM_TYPE_MMAP_FLAG    1
 #define MEM_TYPE_MALLOC_FLAG  0

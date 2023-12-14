@@ -641,7 +641,9 @@ void memfill(long *params) {
 
 
 void PrintListMem(tListMem *lista) {
-    PrintList(lista, 7);
+    PrintList(lista, 0);
+    PrintList(lista, 1);
+    PrintList(lista, 2);
 }
 
 void print_funcs(void);
@@ -695,7 +697,7 @@ void mem(char **param_1, tListMem *lista) {
             print_vars();
             print_funcs();
             PrintListMem(lista);
-        } else if (strcmp(*param_1, "-print_pmap") == 0) {
+        } else if (strcmp(*param_1, "-pmap") == 0) {
             print_pmap();
         } else {
             printf("Parametros no válidos\n");

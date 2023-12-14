@@ -34,35 +34,31 @@ void CommandGetUid(){
     printf("Credencial efectiva: %lu, (%s)\n", (ulong)effectiveUid, GetUsernameByUid(effectiveUid));
 }
 
-void CommandUid(char **commandArgs)
-{
+void cmdUid(char **args){
     char **commandParams;
     int comparisonResult;
     __uid_t targetUid;
 
     //(char) 0x0 en lugar de NULL para que no proteste el compilador
-    if (*commandArgs == NULL || (comparisonResult = strcmp(*commandArgs, "-get"), comparisonResult == 0)
-        || *commandArgs[1] == (char)0x0 || (comparisonResult = strcmp(commandArgs[1], "-l"), comparisonResult == 0 && *commandArgs[2] == (char)0x0))
+    if (*args == NULL || (comparisonResult = strcmp(*args, "-get"), comparisonResult == 0)
+        || *args[1] == (char)0x0 || (comparisonResult = strcmp(args[1], "-l"), comparisonResult == 0 && *args[2] == (char)0x0))
     {
         CommandGetUid();
     } else {
-        comparisonResult = strcmp(*commandArgs, "-get");
+        comparisonResult = strcmp(*args, "-get");
         if (comparisonResult == 0) {
             puts("uid [-get|-set] [-l] [id]");
         } else {
-            commandParams = commandArgs + 1;
+            commandParams = args + 1;
             comparisonResult = strcmp(*commandParams, "-l");
             if (comparisonResult == 0) {
-                targetUid = GetUidByUsername(commandArgs[2]);
+                targetUid = GetUidByUsername(args[2]);
                 if (targetUid == (__uid_t)-1) {
-                    printf("El usuario %s no existe\n", commandArgs[2]);
+                    printf("El usuario %s no existe\n", args[2]);
                     return;
                 }
             } else {
                 targetUid = atoi(*commandParams);
-                if (targetUid < 0) {
-                    targetUid = (__uid_t)-1;
-                }
                 if (targetUid == (__uid_t)-1) {
                     printf("Credenciales inválidas: %s\n", *commandParams);
                     return;
@@ -90,20 +86,20 @@ void ShowEnvironmentVariables(long environmentAddress, char *variableName)
     }
 }
 
-void CommandShowEnvironment(char **commandArgs)
+void cmdShowenv(char **args)
 {
     int comparisonResult;
 
-    if (*commandArgs == NULL) {
+    if (*args == NULL) {
         ShowEnvironmentVariables((long)main3arg, "main arg3");
     }
     else {
-        comparisonResult = strcmp(*commandArgs, "-environ");
+        comparisonResult = strcmp(*args, "-environ");
         if (comparisonResult == 0) {
             ShowEnvironmentVariables((long)environ, "environ");
         }
         else {
-            comparisonResult = strcmp(*commandArgs, "-addr");
+            comparisonResult = strcmp(*args, "-addr");
             if (comparisonResult == 0) {
                 printf("environ:   %p (almacenado en %p)\nmain arg3: %p (almacenado en %p)\n",
                        environ, &environ, (char *)main3arg, addrmain3arg);
@@ -132,30 +128,30 @@ int SearchVariable (char * var, char **e)  /*busca una variable en el entorno qu
     return(-1);
 }
 
-void CommandShowVariable(char **commandArgs)
+void cmdShowvar(char **args)
 {
     int comparisonResult;
     char *environmentVariable;
 
-    if (*commandArgs == NULL) {
-        CommandShowEnvironment(commandArgs);
+    if (*args == NULL) {
+        cmdShowenv(args);
     }
     else {
-        comparisonResult = SearchVariable(*commandArgs, (char **) main3arg);
+        comparisonResult = SearchVariable(*args, (char **) main3arg);
         if (comparisonResult != -1) {
             printf("Con arg3 main %s (%p) @%p\n",
                    (char *)*(ulong *)(main3arg + (long)comparisonResult * 8),
                    (char *)*(ulong *)(main3arg + (long)comparisonResult * 8),
                    (char *)main3arg + (long)comparisonResult * 8);
         }
-        comparisonResult = SearchVariable(*commandArgs, environ);
+        comparisonResult = SearchVariable(*args, environ);
         if (comparisonResult != -1) {
             printf("Con environ %s (%p) @%p\n",
                    environ[comparisonResult],
                    environ[comparisonResult],
                    &environ[comparisonResult]);
         }
-        environmentVariable = getenv(*commandArgs);
+        environmentVariable = getenv(*args);
         if (environmentVariable != (char *)0x0) {
             printf("Con getenv %s (%p)\n", environmentVariable, environmentVariable);
         }
@@ -254,27 +250,27 @@ int ChangeVariablePutenv(char *variable, char *value) {
     return 0;
 }
 
-void CommandChangeVariable(char **commandParams){
+void cmdChangevar(char **args){
     int comparisonResult;
     int result;
 
-    if (*commandParams == NULL || commandParams[1] == NULL || commandParams[2] == NULL) {
-        printf("Uso: %s [-a|-e|-p] variable valor\n", commandParams[-1]);
+    if (*args == NULL || args[1] == NULL || args[2] == NULL) {
+        printf("Uso: %s [-a|-e|-p] variable valor\n", args[-1]);
     } else {
-        comparisonResult = strcmp(*commandParams, "-a");
+        comparisonResult = strcmp(*args, "-a");
         if (comparisonResult == 0) {
-            result = ChangeVariable(commandParams[1], commandParams[2], (long)main3arg);
+            result = ChangeVariable(args[1], args[2], (long)main3arg);
         } else {
-            comparisonResult = strcmp(*commandParams, "-e");
+            comparisonResult = strcmp(*args, "-e");
             if (comparisonResult == 0) {
-                result = ChangeVariable(commandParams[1], commandParams[2], (long)environ);
+                result = ChangeVariable(args[1], args[2], (long)environ);
             } else {
-                comparisonResult = strcmp(*commandParams, "-p");
+                comparisonResult = strcmp(*args, "-p");
                 if (comparisonResult != 0) {
-                    printf("Uso: %s [-a|-e|-p] variable valor\n", commandParams[-1]);
+                    printf("Uso: %s [-a|-e|-p] variable valor\n", args[-1]);
                     return;
                 }
-                result = ChangeVariablePutenv(commandParams[1], commandParams[2]);
+                result = ChangeVariablePutenv(args[1], args[2]);
             }
         }
         if (result == -1) {
@@ -322,30 +318,30 @@ int ReplaceVariableValue(char *variableIndex, const char *newValue, char *variab
     return index;
 }
 
-void CommandSubstituteVariable(char **commandParams) {
+void cmdSubsvar(char **args) {
     int comparisonResult;
     int *errorPointer;
     char *errorMessage;
-    int result = 0;
+    int result;
 
-    if (commandParams == NULL || commandParams[1] == NULL || commandParams[2] == NULL || commandParams[3] == NULL) {
-        printf("Uso: %s [-a|-e] variable1 variable2 valor\n", (commandParams && commandParams[-1]) ? commandParams[-1] : "unknown_command");
+    if (args == NULL || args[1] == NULL || args[2] == NULL || args[3] == NULL) {
+        printf("Uso: subsvar [-a|-e] variable1 variable2 valor\n");
     } else {
-        comparisonResult = strcmp(commandParams[0], "-a");
+        comparisonResult = strcmp(args[0], "-a");
         if (comparisonResult == 0) {
-            result = ReplaceVariableValue(commandParams[1], commandParams[3], commandParams[2], (long)main3arg);
+            result = ReplaceVariableValue(args[1], args[3], args[2], (long)main3arg);
         } else {
-            comparisonResult = strcmp(commandParams[0], "-e");
+            comparisonResult = strcmp(args[0], "-e");
             if (comparisonResult != 0) {
-                printf("Uso: %s [-a|-e] variable1 variable2 valor\n", (commandParams && commandParams[-1]) ? commandParams[-1] : "unknown_command");
+                printf("Uso: subsvar [-a|-e] variable1 variable2 valor\n");
                 return;
             }
-            result = ReplaceVariableValue(commandParams[1], commandParams[3], commandParams[2], (long)environ);
+            result = ReplaceVariableValue(args[1], args[3], args[2], (long)environ);
         }
         if (result == -1) {
             errorPointer = __errno_location();
             errorMessage = strerror(*errorPointer);
-            printf("No se pudo substituir la variable %s con %s: %s\n", commandParams[1], commandParams[2], errorMessage);
+            printf("No se pudo substituir la variable %s con %s: %s\n", args[1], args[2], errorMessage);
         }
     }
 }
@@ -360,7 +356,7 @@ void ExecuteInBackground(BackgroundProcessList *processList)
     childProcessID = fork();
 
     if (childProcessID == 0) {
-        cleanupProcessList(processList);
+        clearProcessList(processList);
         processID = getpid();
         printf("Ejecutando proceso %d\n", (unsigned int)processID);
     } else if (childProcessID != -1) {
@@ -368,58 +364,18 @@ void ExecuteInBackground(BackgroundProcessList *processList)
     }
 }
 
-
-
-//ExecuteCommand que no termina la shell
-/*int ExecuteCommand(char **params)
-{
-    pid_t childPID;
-    int status;
-    int *errorLocation;
-
-    if (*params == NULL) {
-        errorLocation = __errno_location();
-        *errorLocation = 0xe;
-        return -1;
-    }
-
-    childPID = fork();
-
-    if (childPID == -1) {
-        return -1;
-    }
-
-    if (childPID == 0) {
-        execvp(*params, params);
-        perror("No se pudo ejecutar el proceso");
-        exit(EXIT_FAILURE);
-    } else {
-        waitpid(childPID, &status, 0);
-        return status;
-    }
-}
- */
-
-//ExecuteCommand que termina la shell (como la de referencia)
-int ExecuteCommand(char **params)
-{
+void cmdExec(char **process) {
     int result;
-    int *errorLocation;
 
-    if (*params == NULL) {
-        errorLocation = __errno_location();
-        *errorLocation = 0xe;
+    if (*process == NULL) {
+        errno = EINVAL;
         result = -1;
     } else {
-        result = execvp(*params, params);
+        result = execvp(*process, process);
+        if (result == -1) {
+            perror("execvp");
+        }
     }
-    return result;
-}
-
-
-void cmdExec(ulong param)
-{
-    int result = ExecuteCommand((char **)param);
 
     if (result == -1) {
         perror("No se pudo ejecutar el proceso");
@@ -428,29 +384,29 @@ void cmdExec(ulong param)
 
 
 
-void ShowJobs(BackgroundProcessList* processList) {
+void cmdJobs(BackgroundProcessList* processList) {
     UpdateProcessListStatus(processList);
     listBackgroundProcesses(processList);
 }
 
-void DeleteJobs(char** options, BackgroundProcessList* processList) {
-    for (int i = 0; options[i] != NULL; i++) {
-        if (strcmp(options[i], "-term") == 0) {
+void cmdDeljobs(char **args, BackgroundProcessList* processList) {
+    for (int i = 0; args[i] != NULL; i++) {
+        if (strcmp(args[i], "-term") == 0) {
             deleteFinishedProcesses(processList);
-        } else if (strcmp(options[i], "-sig") == 0) {
+        } else if (strcmp(args[i], "-sig") == 0) {
             deleteSignaledProcesses(processList);
         }
     }
-    ShowJobs(processList);
+    cmdJobs(processList);
 }
 
-void JobCommand(char** options, BackgroundProcessList* processList) {
+void cmdJob(char **args, BackgroundProcessList* processList) {
     int foreground = 0;
-    char** localOptions = options;
+    char** localOptions = args;
 
-    if (*options != NULL && strcmp(*options, "-fg") == 0) {
+    if (*args != NULL && strcmp(*args, "-fg") == 0) {
         foreground = 1;
-        localOptions = options + 1;
+        localOptions = args + 1;
     }
 
     pid_t pid = (*localOptions != NULL) ? atoi(*localOptions) : 0;

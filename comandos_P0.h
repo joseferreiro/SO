@@ -1,5 +1,5 @@
-#ifndef UNTITLED_COMANDOS_P0_H
-#define UNTITLED_COMANDOS_P0_H
+#ifndef COMANDOS_P0
+#define COMANDOS_P0
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,4 +32,4 @@ void help(char *command);
 void imprimirPrompt();
 void leerEntrada(char *command);
 
-#endif //UNTITLED_COMANDOS_P0_H
+#endif

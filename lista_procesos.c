@@ -81,7 +81,7 @@ static struct SEN sigstrnum[]={
         {NULL,-1},
 };    /*fin array sigstrnum */
 
-const char* SignalName(int signalNumber) {
+const char *SignalName(int signalNumber) {
     for (int i = 0; sigstrnum[i].nombre != NULL; i++) {
         if (signalNumber == sigstrnum[i].senal) {
             return sigstrnum[i].nombre;
@@ -96,13 +96,13 @@ void initProcessList(BackgroundProcessList *processList) {
     processList->capacity = 0;
 }
 
-void cleanupProcessList(BackgroundProcessList *processList) {
+void clearProcessList(BackgroundProcessList *processList) {
     if (processList->processes != NULL) {
         free(processList->processes);
     }
 }
 
-void addBackgroundProcess(BackgroundProcessList *processList, pid_t pid, const char *commandLine) {
+void addBackgroundProcess(BackgroundProcessList *processList, pid_t pid, const char *process_name) {
     if (processList->size >= processList->capacity) {
         processList->capacity = (processList->capacity == 0) ? 1 : processList->capacity * 2;
         BackgroundProcess *newProcesses = realloc(processList->processes, processList->capacity * sizeof(BackgroundProcess));
@@ -121,8 +121,8 @@ void addBackgroundProcess(BackgroundProcessList *processList, pid_t pid, const c
     processList->processes[index].return_value = 0;
     processList->processes[index].launch_time = time(NULL);
 
-    strncpy(processList->processes[index].command_line, commandLine, sizeof(processList->processes[index].command_line) - 1);
-    processList->processes[index].command_line[sizeof(processList->processes[index].command_line) - 1] = '\0';
+    strncpy(processList->processes[index].process_name, process_name, sizeof(processList->processes[index].process_name) - 1);
+    processList->processes[index].process_name[sizeof(processList->processes[index].process_name) - 1] = '\0';
 
     processList->size++;
 }
@@ -147,7 +147,7 @@ void removeProcessByIndex(BackgroundProcessList *processList, int index) {
 
     processList->size--;
 
-    processList->processes[processList->size].command_line[0] = '\0';
+    processList->processes[processList->size].process_name[0] = '\0';
 }
 
 void UpdateProcessStatus(pid_t pid, BackgroundProcessList *processList) {
@@ -189,7 +189,7 @@ void printProcessInfo(BackgroundProcess *process) {
         return;
     }
 
-    printf("%5d %-10s p=%-5d %s", process->pid, getpwuid(getuid())->pw_name, process->return_value,
+    printf("%5d %-10s p=%-5d %s", process->pid, getpwuid(getuid())->pw_name, getpriority(PRIO_PROCESS,process->pid),
            process->status == PROCESS_ACTIVE ? "ACTIVO" :
            (process->status == PROCESS_FINISHED ? "TERMINADO" :
             (process->status == PROCESS_SIGNALED ? "SIGNALED" : "PARADO")));
@@ -210,7 +210,7 @@ void printProcessInfo(BackgroundProcess *process) {
         fprintf(stderr, "Error: No se pudo obtener el momento de ejecución\n");
     }
 
-    printf(" (%03d) %s\n", process->return_value, process->command_line);
+    printf(" (%03d) %s\n", process->return_value, process->process_name);
 }
 
 void listBackgroundProcesses(BackgroundProcessList *processList) {

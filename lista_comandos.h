@@ -3,8 +3,8 @@
 #include <string.h>
 #define MAXLENC 50
 
-#ifndef LISTA
-#define LISTA
+#ifndef LISTA_COMANDOS
+#define LISTA_COMANDOS
 
 typedef struct tNodeCom{
     char command[MAXLENC];

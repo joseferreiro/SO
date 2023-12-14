@@ -79,7 +79,7 @@ int RBackground(char *args[], BackgroundProcessList *listaproc) {
     }
 }
 
-int cmdexec(char *args[]) {
+int RForeground(char *args[]) {
     pid_t pid;
 
     switch (pid = fork()) {
@@ -97,7 +97,7 @@ int cmdexec(char *args[]) {
     }
 }
 
-void executeCommand(char *trozos[], int numt, int runInBackground, BackgroundProcessList *listaproc) {
+void Exec2(char *trozos[], int numt, int runInBackground, BackgroundProcessList *listaproc) {
     char *args[numt + 1];
     for (int i = 0; i < numt; i++) {
         args[i] = trozos[i];
@@ -109,7 +109,7 @@ void executeCommand(char *trozos[], int numt, int runInBackground, BackgroundPro
     if (runInBackground) {
         result = RBackground(args, listaproc);
     } else {
-        result = cmdexec(args);
+        result = RForeground(args);
     }
 
     if (result == -1) {
@@ -209,38 +209,38 @@ void procesar_entrada(char *command, tListCom *listcom, tListFic *listafic, tLis
             Recurse(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "uid")){
-            CommandUid(trozos + 1);
+            cmdUid(trozos + 1);
 
         }  else  if (!strcmp(trozos[0], "showenv")){
-            CommandShowEnvironment(trozos + 1);
+            cmdShowenv(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "showvar")){
-            CommandShowVariable(trozos + 1);
+            cmdShowvar(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "changevar")){
-            CommandChangeVariable(trozos + 1);
+            cmdChangevar(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "subsvar")){
-            CommandSubstituteVariable(trozos + 1);
+            cmdSubsvar(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "fork")){
             ExecuteInBackground(processlist);
 
         } else  if (!strcmp(trozos[0], "exec")){
-            cmdExec((ulong) (trozos + 1));
+            cmdExec(trozos + 1);
 
         } else  if (!strcmp(trozos[0], "jobs")){
-            ShowJobs(processlist);
+            cmdJobs(processlist);
 
         } else  if (!strcmp(trozos[0], "deljobs")){
-            DeleteJobs(trozos + 1, processlist);
+            cmdDeljobs(trozos + 1, processlist);
 
         } else  if (!strcmp(trozos[0], "job")){
-            JobCommand(trozos + 1, processlist);
+            cmdJob(trozos + 1, processlist);
 
         } else {
             int runInBackground = (numt > 1 && strcmp(trozos[numt - 1], "&") == 0);
-            executeCommand(trozos, numt - runInBackground, runInBackground, processlist);
+            Exec2(trozos, numt - runInBackground, runInBackground, processlist);
         }
         for (int i = 0; i < numt; i++) {
             free(trozos[i]);
@@ -279,7 +279,7 @@ int main(int argc, char const *argv[], char *envp[]) {
     ClearListFic(&listaficheros);
     ClearListCom(&list);
     ClearListMemBlock(&listamemoria);
-    cleanupProcessList(&processlist);
+    clearProcessList(&processlist);
     return 0;
 }
 

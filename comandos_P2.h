@@ -1,5 +1,5 @@
-#ifndef UNTITLED_COMANDOS_P2_H
-#define UNTITLED_COMANDOS_P2_H
+#ifndef COMANDOS_P2
+#define COMANDOS_P2
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,4 +35,4 @@ void memdump(char **params);
 void memfill(long *params);
 void mem(char **param_1, tListMem *lista);
 
-#endif //UNTITLED_COMANDOS_P2_H
+#endif

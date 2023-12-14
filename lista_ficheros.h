@@ -3,8 +3,8 @@
 #include <string.h>
 #define MAXLENF 50
 
-#ifndef UNTITLED_LISTA_FICHEROS_H
-#define UNTITLED_LISTA_FICHEROS_H
+#ifndef LISTA_FICHEROS
+#define LISTA_FICHEROS
 
 typedef struct tNodeFic{
     char nombre[MAXLENF];

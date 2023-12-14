@@ -384,7 +384,7 @@ void help(char *command){
                "\t\t-blocks: los bloques de memoria asignados\n"
                "\t\t-funcs: las direcciones de las funciones\n"
                "\t\t-vars: las direcciones de las variables\n"
-               "\t\t:-all: todo\n"
+               "\t\t-all: todo\n"
                "\t\t-pmap: muestra la salida del comando pmap(o similar)\n");
 
     }else if (!strcmp((command),"recurse")){

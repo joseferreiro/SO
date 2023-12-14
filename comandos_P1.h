@@ -1,5 +1,5 @@
-#ifndef UNTITLED_COMANDOS_P1_H
-#define UNTITLED_COMANDOS_P1_H
+#ifndef COMANDOS_P1
+#define COMANDOS_P1
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,4 +35,4 @@ void list_fun(char *tr[]);
 void delete(char *paths[]);
 void deltree(char *paths[]);
 
-#endif //UNTITLED_COMANDOS_P1_H
+#endif
